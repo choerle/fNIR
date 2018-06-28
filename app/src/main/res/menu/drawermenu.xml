@@ -5,6 +5,9 @@
         android:title="Home"
         android:icon="@drawable/ic_home" />
     <item
+        android:id="@+id/concussions"
+        android:title="Concussions" />
+    <item
         android:id="@+id/about"
         android:title="About"
         android:icon="@drawable/ic_about" />
