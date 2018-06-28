@@ -182,7 +182,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             //Return home
             case R.id.returnTo:
-                Intent i = new Intent(practice.this, MainActivity.class);
+                Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
                 i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(i);
                 return true;
@@ -229,13 +229,13 @@ public class DeviceControlActivity extends AppCompatActivity {
             //If connected to GATT
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
-                Toast.makeText(practice.this, "Connected to : " + mDeviceName, Toast.LENGTH_LONG).show();
+                Toast.makeText(DeviceControlActivity.this, "Connected to : " + mDeviceName, Toast.LENGTH_LONG).show();
                 invalidateOptionsMenu();
 
                 //If disconnected from GATT
             } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
-                Toast.makeText(practice.this, "Disconnected", Toast.LENGTH_LONG).show();
+                Toast.makeText(DeviceControlActivity.this, "Disconnected", Toast.LENGTH_LONG).show();
                 invalidateOptionsMenu();
 
                 //If services are discovered, show all the supported services and characteristics on the user interface.

@@ -1,6 +1,5 @@
 package khoerlevillanova.edu.fnir;
 
-import android.content.Intent;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.annotation.NonNull;
@@ -40,7 +39,7 @@ public class MainActivity extends AppCompatActivity  {
 
     public void selectItemDrawer(MenuItem menuItem) {
         Fragment myFragment = null;
-        Class fragmentClass = null;
+        Class fragmentClass;
         switch (menuItem.getItemId()) {
             case R.id.home:
                 fragmentClass = Home.class;
@@ -48,16 +47,11 @@ public class MainActivity extends AppCompatActivity  {
             case R.id.about:
                 fragmentClass = About.class;
                 break;
-            case R.id.concussions:
-                fragmentClass = Concussion.class;
-                break;
             case R.id.usage:
                 fragmentClass = HowToUse.class;
                 break;
             case R.id.data:
-                Intent i = new Intent(MainActivity.this, DeviceScanActivity.class);
-                startActivity(i);
-                //fragmentClass = CollectData.class;
+                fragmentClass = CollectData.class;
                 break;
             case R.id.settings:
                 fragmentClass = Settings.class;
@@ -66,7 +60,7 @@ public class MainActivity extends AppCompatActivity  {
                 fragmentClass = Home.class;
         }
         try {
-            if(myFragment != null) myFragment = (Fragment) fragmentClass.newInstance();
+            myFragment = (Fragment) fragmentClass.newInstance();
         }
         catch (Exception e){
             e.printStackTrace();
