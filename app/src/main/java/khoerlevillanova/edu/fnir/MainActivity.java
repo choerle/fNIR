@@ -47,6 +47,9 @@ public class MainActivity extends AppCompatActivity  {
             case R.id.about:
                 fragmentClass = About.class;
                 break;
+            case R.id.concussions:
+                fragmentClass = Concussion.class;
+                break;
             case R.id.usage:
                 fragmentClass = HowToUse.class;
                 break;
