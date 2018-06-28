@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">fNIR Application</string>
+    <string name="Open">Open</string>
+    <string name="Close">Close</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="about_the_fnir">About the fNIR</string>
+    <string name="about_description">Functional Near-Infrared Spectroscopy (fNIR) is a recently developed technology that uses infrared light to measure changes in the concentration of hemoglobin in the cortex of the brain. It provides affordable, safe, and portable brain imaging that other brain imaging technologies are not even capable of producing. The fNIR can easily be combined with other brain imaging technologies and includes portable and wireless systems, data processing algorithms, and end-user software. fNIRs have been proven to be great neuroimaging tools for researchers and doctors for they are able to measure brain activity during emotional, intellectual, and motor tasks. The fNIR has proved that it is very effective for studying perception and emotion-related changes of the brain in both adults and children.
+</string>
+
+</resources>
