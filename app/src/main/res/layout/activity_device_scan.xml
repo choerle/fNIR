@@ -8,29 +8,31 @@
 
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@mipmap/fnir">
+        android:layout_height="match_parent">
+
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_marginStart="13dp"
+            android:text="Devices: "
+            android:textSize="30sp"
+            android:textStyle="bold"
+            tools:layout_editor_absoluteX="16dp"
+            tools:layout_editor_absoluteY="16dp" />
 
         <ListView
             android:id="@+id/lvNewDevices"
             android:layout_width="match_parent"
-            android:layout_height="486dp"
+            android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="0dp"
-            android:layout_marginTop="20dp"
+            android:layout_marginBottom="110dp"
+            android:layout_marginLeft="0dp"
+            android:layout_marginRight="0dp"
+            android:layout_marginTop="40dp"
             tools:layout_editor_absoluteX="0dp"
             tools:layout_editor_absoluteY="57dp" />
-
-        <TextView
-            android:id="@+id/textView"
-            android:layout_width="68dp"
-            android:layout_height="27dp"
-            android:layout_alignParentStart="true"
-            android:layout_marginStart="13dp"
-            android:text="Devices: "
-            android:textSize="18sp"
-            tools:layout_editor_absoluteX="16dp"
-            tools:layout_editor_absoluteY="16dp" />
 
     </RelativeLayout>
 

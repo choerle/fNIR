@@ -10,7 +10,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_margin="0dp"
-        android:background="@mipmap/fnir"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
@@ -34,7 +33,6 @@
             android:layout_above="@+id/displayCharacteristic"
             android:layout_centerHorizontal="true"
             android:text="..."
-            android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -45,7 +43,6 @@
             android:layout_above="@+id/lvExp"
             android:layout_centerHorizontal="true"
             android:text="..."
-            android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
 
