@@ -1,5 +1,6 @@
 package khoerlevillanova.edu.fnir;
 
+
 /*
 This is the main activity for controlling and reading from the BLE device
 This activity is created when an item in the device scan activity is clicked.
@@ -59,7 +60,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Graphing variables
     private int count = 0;
     private int time = 0;
-    private int samplingRate = 1000; //In milliseconds
+    private int samplingRate = 250; //In milliseconds
     private LineGraphSeries<DataPoint> series_730;
     private LineGraphSeries<DataPoint> series_850;
     private getDataClass mGetDataClass;
@@ -127,7 +128,6 @@ public class DeviceControlActivity extends AppCompatActivity {
         if (mConnected) {
             menu.findItem(R.id.menu_connect).setVisible(false);
             menu.findItem(R.id.menu_disconnect).setVisible(true);
-            menu.findItem(R.id.displayServices).setVisible(true);
 
             //Determining what buttons should be available when the app is graphing
             if (graphing) {
@@ -144,6 +144,12 @@ public class DeviceControlActivity extends AppCompatActivity {
                 menu.findItem(R.id.clearGraph).setVisible(true);
             else if(!filledGraph)
                 menu.findItem(R.id.clearGraph).setVisible(false);
+
+            //If there are services that can be read
+            if(servicesAvailable)
+                menu.findItem(R.id.displayServices).setVisible(true);
+            else if (!servicesAvailable)
+                menu.findItem(R.id.displayServices).setVisible(false);
         }
 
         //When disconnected, the only button should be to connect
@@ -194,6 +200,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                         mTimer = new Timer();
                     }
                     mTimer.schedule(mGetDataClass, 0, samplingRate);
+                    invalidateOptionsMenu();
                 }
                 return true;
 
@@ -289,6 +296,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 Log.d(TAG, "Services discovered");
                 servicesAvailable = true;
+                invalidateOptionsMenu();
 
                 //If data is available
             } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
@@ -323,6 +331,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
                 filledGraph = true;
                 graphing = true;
+                invalidateOptionsMenu();
 
                 Log.d(TAG, "Reading data");
 
@@ -370,6 +379,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     public void stopDataCollection(){
         graphing = false;
         Log.d(TAG, "Graphing stopped");
+        invalidateOptionsMenu();
         mTimer.cancel();
         mTimer.purge();
     }

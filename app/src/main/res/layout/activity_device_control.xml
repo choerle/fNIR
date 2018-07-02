@@ -10,19 +10,20 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_margin="0dp"
+        android:background="@mipmap/fnir"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
         <com.jjoe64.graphview.GraphView
             android:id="@+id/dataGraph"
             android:layout_width="wrap_content"
-            android:layout_height="217dp" />
+            android:layout_height="164dp" />
 
 
         <ExpandableListView
             android:id="@+id/lvExp"
             android:layout_width="match_parent"
-            android:layout_height="191dp"
+            android:layout_height="140dp"
             android:layout_alignParentBottom="true"
             android:layout_marginBottom="0dp" />
 
@@ -30,8 +31,12 @@
             android:id="@+id/dataField"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="..." />
+            android:layout_above="@+id/displayCharacteristic"
+            android:layout_centerHorizontal="true"
+            android:text="..."
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/displayCharacteristic"
@@ -39,21 +44,10 @@
             android:layout_height="wrap_content"
             android:layout_above="@+id/lvExp"
             android:layout_centerHorizontal="true"
-            android:text="..." />
-
-        <TextView
-            android:id="@+id/textView3"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@+id/dataGraph"
-            android:text="Red: 850" />
-
-        <TextView
-            android:id="@+id/textView4"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@+id/textView3"
-            android:text="Blue: 730" />
+            android:text="..."
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
 
     </RelativeLayout>
