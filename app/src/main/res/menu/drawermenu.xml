@@ -10,8 +10,7 @@
         android:icon="@drawable/ic_about" />
     <item
         android:id="@+id/concussions"
-        android:title="Concussions"
-        android:icon="@drawable/ic_concussion" />
+        android:title="Concussions" />
     <item
         android:id="@+id/usage"
         android:title="How To Use"
