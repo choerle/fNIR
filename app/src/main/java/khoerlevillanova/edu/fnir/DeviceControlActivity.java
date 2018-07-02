@@ -40,17 +40,11 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-/*import static com.example.jcamp_zwujyoe.ble.BluetoothLeService.ACTION_DATA_AVAILABLE;
-import static com.example.jcamp_zwujyoe.ble.BluetoothLeService.ACTION_GATT_CONNECTED;
-import static com.example.jcamp_zwujyoe.ble.BluetoothLeService.ACTION_GATT_DISCONNECTED;
-import static com.example.jcamp_zwujyoe.ble.BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED;
-import static com.example.jcamp_zwujyoe.ble.BluetoothLeService.EXTRA_DATA;*/
-
 
 public class DeviceControlActivity extends AppCompatActivity {
 
     //Constants
-    private final String TAG = "practice";
+    private final String TAG = "DeviceControlActivity";
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
     private final String LIST_NAME = "NAME";
@@ -63,10 +57,9 @@ public class DeviceControlActivity extends AppCompatActivity {
     private GraphView dataGraph;
 
     //Graphing variables
-    private boolean graphing = false;
     private int count = 0;
     private int time = 0;
-    private int samplingRate = 100; //In milliseconds
+    private int samplingRate = 1000; //In milliseconds
     private LineGraphSeries<DataPoint> series_730;
     private LineGraphSeries<DataPoint> series_850;
     private getDataClass mGetDataClass;
@@ -78,10 +71,12 @@ public class DeviceControlActivity extends AppCompatActivity {
     private String mDeviceAddress;
     private BluetoothLeService mBluetoothLeService;
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics = new ArrayList();
-    private boolean mConnected = false;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
 
-
+    //Management of devices state
+    private boolean mConnected = false;     //If connected to a device, this is true
+    private boolean graphing = false;       //If the application is actively updating the graph, this is true
+    private boolean filledGraph = false;    //If there is data on the graph, this is true
 
 
     @Override
@@ -96,6 +91,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         dataField = findViewById(R.id.dataField);
         displayCharacterstic = findViewById(R.id.displayCharacteristic);
 
+        //TODO: fix graphing window
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
         dataGraph.setTitle("Voltage vs Time");
@@ -111,6 +107,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         final Intent intent = getIntent();
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
+        Log.d(TAG, "Name: " + mDeviceName + "   Address: " + mDeviceAddress);
 
         //Connecting to BLE services class
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
@@ -125,12 +122,46 @@ public class DeviceControlActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.gatt_services, menu);
+
+        //Determining what buttons should be available when connected to a device
+        if (mConnected) {
+            menu.findItem(R.id.menu_connect).setVisible(false);
+            menu.findItem(R.id.menu_disconnect).setVisible(true);
+            menu.findItem(R.id.displayServices).setVisible(true);
+
+            //Determining what buttons should be available when the app is graphing
+            if (graphing) {
+                menu.findItem(R.id.startData).setVisible(false);
+                menu.findItem(R.id.stopData).setVisible(true);
+
+            } else if(!graphing) {
+                menu.findItem(R.id.startData).setVisible(true);
+                menu.findItem(R.id.stopData).setVisible(false);
+            }
+
+            //Set clear graph to only be shown when the graph has data
+            if(filledGraph)
+                menu.findItem(R.id.clearGraph).setVisible(true);
+            else if(!filledGraph)
+                menu.findItem(R.id.clearGraph).setVisible(false);
+        }
+
+        //When disconnected, the only button should be to connect
+        else if(!mConnected){
+            menu.findItem(R.id.menu_connect).setVisible(true);
+            menu.findItem(R.id.menu_disconnect).setVisible(false);
+            menu.findItem(R.id.displayServices).setVisible(false);
+            menu.findItem(R.id.startData).setVisible(false);
+            menu.findItem(R.id.stopData).setVisible(false);
+            menu.findItem(R.id.clearGraph).setVisible(false);
+        }
         return true;
     }
 
 
 
 
+    //TODO: remove any options that are impossible
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
@@ -157,19 +188,29 @@ public class DeviceControlActivity extends AppCompatActivity {
             case R.id.startData:
                 if(!graphing && mConnected) {
                     Log.d(TAG, "Menu item startData: trying to startData");
-                    graphing = true;
+                    //Continue data collection with the old graph
+                    if(filledGraph) {
+                        mGetDataClass = new getDataClass();
+                        mTimer = new Timer();
+                    }
                     mTimer.schedule(mGetDataClass, 0, samplingRate);
                 }
                 return true;
 
-            //Stops collection of data
+            //Stops collection of data, but keeps graph intact
             case R.id.stopData:
-                stopDataCollection();
+                if(graphing && mConnected) {
+                    Log.d(TAG, "Menu item stopData: trying to stopData");
+                    stopDataCollection();
+                }
                 return true;
 
-            //Clears the graph and stops collecting data
+            //Stops collection of data and clears the graph
             case R.id.clearGraph:
-                clearGraph();
+                if(mConnected && filledGraph) {
+                    Log.d(TAG, "Menu item clearGraph: trying to clearGraph");
+                    clearGraph();
+                }
                 return true;
 
             //Display available services
@@ -182,6 +223,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             //Return home
             case R.id.returnTo:
+                Log.d(TAG, "Returning home");
                 Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
                 i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(i);
@@ -205,8 +247,11 @@ public class DeviceControlActivity extends AppCompatActivity {
                 finish();
             }
             // Automatically connects to the device upon successful start-up initialization.
-            Log.d(TAG, "Connecting to BLE");
             mBluetoothLeService.connect(mDeviceAddress);
+            if(mConnected)
+                Log.d(TAG, "BLE connection");
+            else
+                Log.d(TAG, "No connection was established");
         }
 
         @Override
@@ -226,20 +271,23 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             final String action = intent.getAction();
 
-            //If connected to GATT
+                //If connected to GATT
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
+                Log.d(TAG, "Connected to BLE");
                 Toast.makeText(DeviceControlActivity.this, "Connected to : " + mDeviceName, Toast.LENGTH_LONG).show();
                 invalidateOptionsMenu();
 
                 //If disconnected from GATT
             } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
+                Log.d(TAG, "Disconnected from BLE");
                 Toast.makeText(DeviceControlActivity.this, "Disconnected", Toast.LENGTH_LONG).show();
                 invalidateOptionsMenu();
 
                 //If services are discovered, show all the supported services and characteristics on the user interface.
             } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                Log.d(TAG, "Services discovered");
                 servicesAvailable = true;
 
                 //If data is available
@@ -273,9 +321,13 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             if (mBluetoothLeService.readVoltages() != null) {
 
+                filledGraph = true;
+                graphing = true;
+
                 Log.d(TAG, "Reading data");
 
-                time = count*samplingRate/1000;     //Determines when the data sample is taken, in seconds
+                //Determines when the data sample is taken, in seconds
+                time = count*samplingRate/1000;
 
                 String data = mBluetoothLeService.readVoltages();
 
@@ -306,7 +358,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         //Graphs data by adding to old series and plotting it
         public void graphData(double value, LineGraphSeries<DataPoint> series){
             DataPoint dataPoint = new DataPoint(time, value);
-            series.appendData(dataPoint, true,100000);
+            series.appendData(dataPoint, true,1000);
             dataGraph.addSeries(series);
         }
     }
@@ -316,6 +368,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
     //Stops graphing and collecting data
     public void stopDataCollection(){
+        graphing = false;
         Log.d(TAG, "Graphing stopped");
         mTimer.cancel();
         mTimer.purge();
@@ -326,7 +379,8 @@ public class DeviceControlActivity extends AppCompatActivity {
 
     //Clears when the graph is long clicked, first stops data collection then creates new series
     public void clearGraph(){
-        graphing = false;
+        filledGraph = false;
+        Log.d(TAG, "Graph cleared");
         stopDataCollection();
         initializeSeries();
     }
@@ -334,8 +388,12 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //Creates 2 new series for the grpah
+    //Creates 2 new series for the graph
     public void initializeSeries(){
+
+        //Resetting the time for incoming data
+        count = 0;
+        time = 0;
 
         dataGraph.removeAllSeries();
 
@@ -360,7 +418,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
     // Populates expandable list view with GATT services found
-    //The child views are the characteristics of each service
+    // The child views are the characteristics of each service
     private void displayGattServices(List<BluetoothGattService> gattServices) {
 
         if (gattServices == null)
@@ -524,13 +582,34 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    private void initialize(){
+
+        initializeSeries();
+
+        mTimer = new Timer();
+
+        //Getting device name and address from intent
+        final Intent intent = getIntent();
+        mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
+        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
+        Log.d(TAG, "Name: " + mDeviceName + "   Address: " + mDeviceAddress);
+
+        //Connecting to BLE services class
+        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+        Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
+        bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+    }
+
+
+
+
 
     @Override
     protected void onResume() {
         super.onResume();
-        clearGraph();
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         if (mBluetoothLeService != null) {
+            initialize();
             final boolean result = mBluetoothLeService.connect(mDeviceAddress);
             Log.d(TAG, "Connect request result=" + result);
         }

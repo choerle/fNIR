@@ -41,8 +41,8 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
 
 
     //Constants
-    private final String TAG = "MainActivity";
-    private final int SCAN_PERIOD = 10000;
+    private final String TAG = "DeviceScanActivity";
+    private final int SCAN_PERIOD = 5000;
 
     //UI variables
     private ListView lvDevices;
@@ -63,6 +63,7 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_scan);
 
@@ -74,7 +75,7 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
         enableBT();
 
         //Checking if device has bluetooth LE
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE) || !enableBT()) {
             finish();
         }
 
@@ -249,10 +250,9 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
         Log.d(TAG, "onItemClick: You Clicked on a device." + deviceAdress + deviceName);
 
         //Adding device name and address to intent
-        final Intent intent = new Intent(this, DeviceControlActivity.class);
+        Intent intent = new Intent(DeviceScanActivity.this, DeviceControlActivity.class);
         intent.putExtra(EXTRAS_DEVICE_NAME, deviceName);
         intent.putExtra(EXTRAS_DEVICE_ADDRESS, deviceAdress);
-
         startActivity(intent);
     }
 }

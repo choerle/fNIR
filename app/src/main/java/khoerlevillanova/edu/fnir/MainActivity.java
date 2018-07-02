@@ -13,8 +13,10 @@ import android.view.MenuItem;
 
 public class MainActivity extends AppCompatActivity  {
 
+
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mToggle;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +32,7 @@ public class MainActivity extends AppCompatActivity  {
         setupDrawerContent(nvDrawer);
     }
 
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (mToggle.onOptionsItemSelected(item)) {
@@ -37,6 +40,7 @@ public class MainActivity extends AppCompatActivity  {
         }
         return super.onOptionsItemSelected(item);
     }
+
 
     public void selectItemDrawer(MenuItem menuItem) {
 
@@ -63,19 +67,22 @@ public class MainActivity extends AppCompatActivity  {
                 break;
             default:
                 fragmentClass = Home.class;
+                break;
         }
 
-        try {
-            myFragment = (Fragment) fragmentClass.newInstance();
+        if(fragmentClass != null) {
+            try {
+                myFragment = (Fragment) fragmentClass.newInstance();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            FragmentManager fragmentManager = getSupportFragmentManager();
+            fragmentManager.beginTransaction().replace(R.id.flcontent, myFragment).commit();
+            menuItem.setChecked(true);
+            setTitle(menuItem.getTitle());
+            mDrawerLayout.closeDrawers();
         }
-        catch (Exception e){
-            e.printStackTrace();
-        }
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        fragmentManager.beginTransaction().replace(R.id.flcontent, myFragment).commit();
-        menuItem.setChecked(true);
-        setTitle(menuItem.getTitle());
-        mDrawerLayout.closeDrawers();
     }
 
     private void setupDrawerContent(NavigationView navigationView) {
