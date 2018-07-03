@@ -44,6 +44,8 @@ public class DeviceListAdapter extends ArrayAdapter<BluetoothDevice> {
 
             TextView deviceName = (TextView) convertView.findViewById(R.id.tvDeviceName);
             TextView deviceAdress = (TextView) convertView.findViewById(R.id.tvDeviceAddress);
+            deviceName.setTextColor(Color.WHITE);
+            deviceAdress.setTextColor(Color.WHITE);
 
             if (deviceName != null) {
                 deviceName.setText(device.getName());

@@ -10,41 +10,46 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_margin="0dp"
+        android:background="@drawable/background2"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
         <com.jjoe64.graphview.GraphView
             android:id="@+id/dataGraph"
+            style="@style/DataText.Small"
             android:layout_width="wrap_content"
-            android:layout_height="164dp" />
+            android:layout_height="288dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginRight="10dp"
+            android:layout_marginTop="10dp" />
 
 
         <ExpandableListView
             android:id="@+id/lvExp"
+            style="@style/DataText.Small"
             android:layout_width="match_parent"
-            android:layout_height="140dp"
+            android:layout_height="161dp"
             android:layout_alignParentBottom="true"
             android:layout_marginBottom="0dp" />
 
         <TextView
             android:id="@+id/dataField"
+            style="@style/DataText.Small"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_above="@+id/displayCharacteristic"
             android:layout_centerHorizontal="true"
             android:text="..."
-            android:textSize="18sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/displayCharacteristic"
+            style="@style/DataText.Small"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_above="@+id/lvExp"
             android:layout_centerHorizontal="true"
-            android:text="..."
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:text="..." />
 
 
     </RelativeLayout>

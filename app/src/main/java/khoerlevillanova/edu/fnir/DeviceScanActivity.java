@@ -10,6 +10,7 @@ device
 
 
 import android.Manifest;
+import android.app.ActionBar;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -21,12 +22,21 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Handler;
+import android.support.annotation.NonNull;
+import android.support.design.widget.NavigationView;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.CompoundButton;
 import android.widget.ListView;
+import android.widget.Switch;
 import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,6 +57,7 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
     //UI variables
     private ListView lvDevices;
     private DeviceListAdapter mDeviceListAdapter;
+    private Switch scanSwitch;
 
     //Bluetooth Variables
     private BluetoothAdapter mBluetoothAdapter;
@@ -67,6 +78,9 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_scan);
 
+        //Creating a back button
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
         //Creating bluetooth adapter
         BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
@@ -82,6 +96,24 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
         //Creating list views for discovered devices
         lvDevices = findViewById(R.id.lvNewDevices);
         lvDevices.setOnItemClickListener(DeviceScanActivity.this);
+
+        scanSwitch = findViewById(R.id.scanSwitch);
+        scanSwitch.setChecked(true);
+
+        //If the switch is on, the app will scan for devices, if it is off
+        //the app will stop scanning
+        scanSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+
+                if(scanSwitch.isChecked())
+                    startScan();
+                else
+                    stopScan();
+            }
+
+        });
 
         startScan();
     }
@@ -141,6 +173,7 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
+                scanSwitch.setChecked(false);
                 Log.d(TAG, "Scan stopped");
                 stopScan();
             }

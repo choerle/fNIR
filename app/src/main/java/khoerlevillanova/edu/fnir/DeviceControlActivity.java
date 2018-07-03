@@ -85,20 +85,30 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_control);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
 
         //UI variable initializations
-        mGattServicesList = (ExpandableListView) findViewById(R.id.lvExp);
+        mGattServicesList = findViewById(R.id.lvExp);
         mGattServicesList.setOnChildClickListener(servicesListClickListner);
         dataField = findViewById(R.id.dataField);
         displayCharacterstic = findViewById(R.id.displayCharacteristic);
 
-        //TODO: fix graphing window
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
-        dataGraph.setTitle("Voltage vs Time");
-        dataGraph.getViewport().setScrollable(true);
-        dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time");
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Voltage");
+        dataGraph.setTitle("Raw fNIR Data");
+        dataGraph.setTitleColor(Color.WHITE);
+        dataGraph.setTitleTextSize(110);
+        //dataGraph.getViewport().setScrollable(true);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(70);
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(70);
+        dataGraph.getGridLabelRenderer().setGridColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitleColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setHorizontalLabelsColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setVerticalLabelsColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Intensity (Voltage)");
 
         initializeSeries();
 
