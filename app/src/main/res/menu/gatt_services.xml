@@ -28,6 +28,10 @@
         android:orderInCategory="102"
         android:title="@string/menu_connect" />
     <item
+        android:id="@+id/dataAnalysis"
+        android:orderInCategory="103"
+        android:title="Start Data Analysis" />
+    <item
         android:id="@+id/startData"
         android:orderInCategory="104"
         android:title="Start Data Collection" />
@@ -39,8 +43,4 @@
         android:id="@+id/stopData"
         android:orderInCategory="105"
         android:title="Stop Data Collection" />
-    <item
-        android:id="@+id/displayServices"
-        android:orderInCategory="107"
-        android:title="Display Services" />
 </menu>

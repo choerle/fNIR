@@ -57,16 +57,26 @@ public class DeviceControlActivity extends AppCompatActivity {
     private final String LIST_UUID = "UUID";
 
     //UI variables
-    private TextView dataField;
-    private ExpandableListView mGattServicesList;
+    private TextView dataField_730;
+    private TextView dataField_850;
+    private TextView timeField;
     private GraphView dataGraph;
 
+    //Data storage variables
+    private bvoxy mBvoxy;
+    private ArrayList<Double> data_730;
+    private ArrayList<Double> data_850;
+    private ArrayList<Double> data_time;
+    private ArrayList<Double> HB;
+    private ArrayList<Double> HBO2;
+
     //Graphing variables
+    private boolean graphingRaw;
     private int count = 0;
-    private int time = 0;
-    private int samplingRate = 1000; //In milliseconds
-    private LineGraphSeries<DataPoint> series_730;
-    private LineGraphSeries<DataPoint> series_850;
+    private double time = 0;
+    private int samplingRate = 250; //In milliseconds
+    private LineGraphSeries<DataPoint> series_HB;
+    private LineGraphSeries<DataPoint> series_HBO2;
     private getDataClass mGetDataClass;
     private Timer mTimer;
 
@@ -94,21 +104,19 @@ public class DeviceControlActivity extends AppCompatActivity {
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         //UI variable initializations
-        mGattServicesList = findViewById(R.id.lvExp);
-        mGattServicesList.setOnChildClickListener(servicesListClickListner);
-        dataField = findViewById(R.id.dataField);
+        timeField = findViewById(R.id.timeField);
+        dataField_730 = findViewById(R.id.data730);
+        dataField_850 = findViewById(R.id.data850);
 
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
-
         dataGraph.getViewport().setYAxisBoundsManual(true);
-        dataGraph.getViewport().setMinY(0);
-        dataGraph.getViewport().setMaxY(3000);
+        dataGraph.getViewport().setMinY(-100);
+        dataGraph.getViewport().setMaxY(100);
         dataGraph.getViewport().setXAxisBoundsManual(true);
-
         dataGraph.setTitleTextSize(110);
-        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(70);
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(70);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(60);
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(60);
         dataGraph.getGridLabelRenderer().setGridColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setHorizontalAxisTitleColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setVerticalAxisTitleColor(Color.WHITE);
@@ -118,12 +126,6 @@ public class DeviceControlActivity extends AppCompatActivity {
         dataGraph.setTitle("Raw fNIR Data");
         dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
         dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Intensity (Voltage)");
-
-        initializeSeries();
-        dataGraph.addSeries(series_730);
-        dataGraph.addSeries(series_850);
-
-        mTimer = new Timer();
 
         //Getting device name and address from intent
         final Intent intent = getIntent();
@@ -151,35 +153,48 @@ public class DeviceControlActivity extends AppCompatActivity {
             menu.findItem(R.id.menu_connect).setVisible(false);
             //menu.findItem(R.id.menu_disconnect).setVisible(true);
 
-            //Determining what buttons should be available when the app is graphing
-            if (graphing) {
-                menu.findItem(R.id.startData).setVisible(false);
-                menu.findItem(R.id.stopData).setVisible(true);
-
-            } else if(!graphing) {
+            //If the graph is empty, both data collecting options should be available
+            if(!graphing && !filledGraph){
                 menu.findItem(R.id.startData).setVisible(true);
-                menu.findItem(R.id.stopData).setVisible(false);
+                menu.findItem(R.id.dataAnalysis).setVisible(true);
             }
+
+            //If graphing raw data and the graph is stopped but filled
+            else if(!graphing && filledGraph && graphingRaw){
+                menu.findItem(R.id.startData).setVisible(true);
+                menu.findItem(R.id.dataAnalysis).setVisible(false);
+            }
+
+            //If graphing analyzed data and the graph is stopped but filled
+            else if(!graphing && filledGraph && !graphingRaw){
+                menu.findItem(R.id.startData).setVisible(false);
+                menu.findItem(R.id.dataAnalysis).setVisible(true);
+            }
+
+            //While the app is graphing
+            if (graphing) {
+                menu.findItem(R.id.stopData).setVisible(true);
+                menu.findItem(R.id.startData).setVisible(false);
+                menu.findItem(R.id.dataAnalysis).setVisible(false);
+            }
+
+            //While the app is not graphing
+            else if(!graphing)
+                menu.findItem(R.id.stopData).setVisible(false);
 
             //Set clear graph to only be shown when the graph has data
             if(filledGraph)
                 menu.findItem(R.id.clearGraph).setVisible(true);
             else if(!filledGraph)
                 menu.findItem(R.id.clearGraph).setVisible(false);
-
-            //If there are services that can be read
-            if(servicesAvailable)
-                menu.findItem(R.id.displayServices).setVisible(true);
-            else if (!servicesAvailable)
-                menu.findItem(R.id.displayServices).setVisible(false);
         }
 
-        //When disconnected, the only button should be to connect
+        //When disconnected, the only button should be to connect and go home
         else if(!mConnected){
             menu.findItem(R.id.menu_connect).setVisible(true);
             //menu.findItem(R.id.menu_disconnect).setVisible(false);
-            menu.findItem(R.id.displayServices).setVisible(false);
             menu.findItem(R.id.startData).setVisible(false);
+            menu.findItem(R.id.dataAnalysis).setVisible(false);
             menu.findItem(R.id.stopData).setVisible(false);
             menu.findItem(R.id.clearGraph).setVisible(false);
         }
@@ -214,16 +229,36 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Begins collection and graphing of data
             case R.id.startData:
                 if(!graphing && mConnected) {
+                    graphingRaw = true;
                     Log.d(TAG, "Menu item startData: trying to startData");
-                    //Continue data collection with the old graph
-                    if(filledGraph) {
-                        mGetDataClass = new getDataClass();
+                    if(filledGraph){
                         mTimer = new Timer();
+                        mGetDataClass = new getDataClass();
                     }
+                    else
+                        initializeSeries();
                     mTimer.schedule(mGetDataClass, 0, samplingRate);
                     invalidateOptionsMenu();
                 }
                 return true;
+
+            case R.id.dataAnalysis:
+                if(!graphing && mConnected) {
+                    graphingRaw = false;
+                    Log.d(TAG, "Menu item startData: trying to startData");
+                    //Continue graphing
+                    if(filledGraph){
+                        mTimer = new Timer();
+                        mGetDataClass = new getDataClass();
+                        mGetDataClass.gettingBaseline = false;
+                    }
+                    else
+                        initializeSeries();
+                    mTimer.schedule(mGetDataClass, 0, samplingRate);
+                    invalidateOptionsMenu();
+                }
+                return true;
+
 
             //Stops collection of data, but keeps graph intact
             case R.id.stopData:
@@ -238,14 +273,6 @@ public class DeviceControlActivity extends AppCompatActivity {
                 if(mConnected && filledGraph) {
                     Log.d(TAG, "Menu item clearGraph: trying to clearGraph");
                     clearGraph();
-                }
-                return true;
-
-            //Display available services
-            case R.id.displayServices:
-                if(servicesAvailable) {
-                    Log.d(TAG, "Menu item displayServices: trying to displayServices");
-                    displayGattServices(mBluetoothLeService.getSupportedGattServices());
                 }
                 return true;
 
@@ -323,7 +350,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
                 String data = intent.getStringExtra(BluetoothLeService.EXTRA_DATA);
                 Log.d(TAG, "DATA: " + data);
-                displayChractersiticInfo(data);
+                //displayChractersiticInfo(data);
             }
         }
     };
@@ -334,59 +361,204 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Class to get data every X seconds and then plot the data
     class getDataClass extends TimerTask {
 
-        public void run(){
+        //If true, the app will be creating a baseline and not graphing
+        public boolean gettingBaseline = true;
+
+
+        getDataClass(){
+            //Setting up the axis labels
+            if(graphingRaw){
+                dataGraph.getViewport().setMinY(0);
+                dataGraph.getViewport().setMaxY(3000);
+                dataGraph.setTitle("Raw fNIR Data");
+                dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
+                dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Intensity (Voltage)");
+            }
+
+            else {
+                dataGraph.getViewport().setMinY(-100);
+                dataGraph.getViewport().setMaxY(100);
+                dataGraph.setTitle("Oxygenation");
+                dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
+                dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Concentration");
+            }
+        }
+
+
+
+
+        //This method runs every X seconds
+        public void run() {
             runOnUiThread(new Runnable() {
 
                 @Override
                 public void run() {
-                    getData();
+
+                    //Checking to see if data is available
+                    if (mBluetoothLeService.readVoltages() != null && mBluetoothLeService != null) {
+
+                        if(count == 0){
+                            filledGraph = true;
+                            graphing = true;
+                            invalidateOptionsMenu();
+                        }
+
+                        //For graphing raw voltages
+                        if(graphingRaw){
+                            getRawData();
+                        }
+
+                        //For first creating a baseline then graphing oxygen levels
+                        else {
+                            if (gettingBaseline)
+                                getBaseline();
+                            else
+                                getData();
+                        }
+                    }
                 }
             });
         }
 
 
-        //Displays the data value on the UI and graphs it
-        private void getData() {
 
-            if (mBluetoothLeService.readVoltages() != null) {
 
-                filledGraph = true;
-                graphing = true;
-                invalidateOptionsMenu();
+        //Graphing raw voltages
+        private void getRawData(){
+
+            Log.d(TAG, "Reading data");
+
+            //Determines when the data sample is taken, in seconds
+            time = count * samplingRate / 1000;
+
+            //Updating the UI to display the time at which each sample is taken
+            timeField.setText(String.valueOf(time));
+
+            String data = mBluetoothLeService.readVoltages();
+
+            //730 wavelength
+            String data_730_1 = data.substring(0, 2);
+            String data_730_2 = data.substring(3, 5);
+            String data_730s = new StringBuilder().append(data_730_1).append(data_730_2).toString();
+            double data_730 = getDecimal(data_730s);
+
+            //850 wavelength
+            String data_850_1 = data.substring(6, 8);
+            String data_850_2 = data.substring(9, 11);
+            String data_850s = new StringBuilder().append(data_850_1).append(data_850_2).toString();
+            double data_850 = getDecimal(data_850s);
+
+            //Updating the UI to display the 730 and 850 voltage readings
+            dataField_730.setText(String.valueOf(data_730));
+            dataField_850.setText(String.valueOf(data_850));
+
+            Log.d(TAG, data_730s + "           " + String.valueOf(data_730));
+
+            //Adding voltages to graph
+            graphData(data_730, series_HB);
+            graphData(data_850, series_HBO2);
+
+            //Increment count in order to increment time
+            ++count;
+        }
+
+
+
+
+        //Creates a baseline using the first few data samples
+        private void getBaseline() {
+
+
+            //Getting the first 20 samples for a baseline
+            if (count < 20) {
+
+                if(count == 0)
+                    Toast.makeText(DeviceControlActivity.this, "Creating Baseline...", Toast.LENGTH_LONG).show();
 
                 Log.d(TAG, "Reading data");
-
-                //Determines when the data sample is taken, in seconds
-                time = count*samplingRate/1000;
-                dataField.setText(String.valueOf(time));
 
                 String data = mBluetoothLeService.readVoltages();
 
                 //730 wavelength
-                String data_730_1 = data.substring(0,2);
-                String data_730_2 = data.substring(3,5);
+                String data_730_1 = data.substring(0, 2);
+                String data_730_2 = data.substring(3, 5);
                 String data_730s = new StringBuilder().append(data_730_1).append(data_730_2).toString();
-                double data_730 = getDecimal(data_730s);
-                graphData(data_730, series_730);
+                double data_730d = getDecimal(data_730s);
 
                 //850 wavelength
-                String data_850_1 = data.substring(6,8);
-                String data_850_2 = data.substring(9,11);
+                String data_850_1 = data.substring(6, 8);
+                String data_850_2 = data.substring(9, 11);
                 String data_850s = new StringBuilder().append(data_850_1).append(data_850_2).toString();
-                double data_850 = getDecimal(data_850s);
-                graphData(data_850, series_850);
+                double data_850d = getDecimal(data_850s);
 
-                Log.d(TAG, data_730s + "           " + String.valueOf(data_730));
+                //Adding new readings to the array lists
+                data_730.add(data_730d);
+                data_850.add(data_850d);
 
-                //Increment count in order to increment time
                 ++count;
             }
+
+
+            //After getting 20 data samples, create the baseline array
+            else if (count == 20 && gettingBaseline) {
+                Log.d(TAG, "BEGINNING DATA ANALYSIS");
+                mBvoxy = new bvoxy(data_730, data_850);
+                count = 0;
+                gettingBaseline = false;
+            }
+        }
+
+
+
+
+        //After obtaining a baseline, read in the voltages and convert them
+        private void getData() {
+
+            Log.d(TAG, "Reading and converting data");
+
+            //Determines when the data sample is taken, in seconds
+            time = count * samplingRate / 1000;
+            //Updating the UI to display the time at which each sample is taken
+            timeField.setText(String.valueOf(time));
+
+            String data = mBluetoothLeService.readVoltages();
+
+            //730 wavelength
+            String data_730_1 = data.substring(0, 2);
+            String data_730_2 = data.substring(3, 5);
+            String data_730s = new StringBuilder().append(data_730_1).append(data_730_2).toString();
+            double data_730d = getDecimal(data_730s);
+
+            //850 wavelength
+            String data_850_1 = data.substring(6, 8);
+            String data_850_2 = data.substring(9, 11);
+            String data_850s = new StringBuilder().append(data_850_1).append(data_850_2).toString();
+            double data_850d = getDecimal(data_850s);
+
+            //Adding new readings to the array lists
+            data_730.add(data_730d);
+            data_850.add(data_850d);
+
+            //Converting the 2 voltage readings into oxygenation readings
+            mBvoxy.addHemoglobin(HB, HBO2, count, data_850d, data_730d);
+
+            //Adding the HB and HBO2 points to the graph
+            graphData(HB.get(count), series_HB);
+            graphData(HBO2.get(count), series_HBO2);
+
+            //Updating the UI to display the 730 and 850 voltage readings
+            dataField_730.setText(String.valueOf(data_730d));
+            dataField_850.setText(String.valueOf(data_850d));
+
+            //Increment count in order to increment time
+            ++count;
         }
 
 
         //TODO: is this way of graphing slow?
         //Graphs data by adding to old series and plotting it
-        public void graphData(double value, LineGraphSeries<DataPoint> series){
+        public void graphData(Double value, LineGraphSeries<DataPoint> series){
+            Log.d(TAG, "Graphing...");
             DataPoint dataPoint = new DataPoint(time, value);
             series.appendData(dataPoint, true,5000);
             dataGraph.getViewport().setMinX(0);
@@ -402,8 +574,10 @@ public class DeviceControlActivity extends AppCompatActivity {
         graphing = false;
         Log.d(TAG, "Graphing stopped");
         invalidateOptionsMenu();
-        mTimer.cancel();
-        mTimer.purge();
+        if(mTimer!= null) {
+            mTimer.cancel();
+            mTimer.purge();
+        }
     }
 
 
@@ -412,7 +586,9 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Clears when the graph is long clicked, first stops data collection then creates new series
     public void clearGraph(){
         filledGraph = false;
-        dataField.setText("...");
+        dataField_730.setText("...");
+        dataField_850.setText("...");
+        timeField.setText("...");
         Log.d(TAG, "Graph cleared");
         stopDataCollection();
         initializeSeries();
@@ -430,130 +606,28 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         dataGraph.removeAllSeries();
 
+        //Creating new array list to store the data
+        data_850 = new ArrayList<>();
+        data_730 = new ArrayList<>();
+        data_time = new ArrayList<>();
+        HB = new ArrayList<>();
+        HBO2 = new ArrayList<>();
+
         //730 wavelength series initialization
-        series_730 = new LineGraphSeries<>();
-        series_730.setColor(Color.BLUE);
-        dataGraph.addSeries(series_730);
+        series_HB = new LineGraphSeries<>();
+        series_HB.setColor(Color.BLUE);
+        dataGraph.addSeries(series_HB);
 
         //850 wavelength series initialization
-        series_850 = new LineGraphSeries<>();
-        series_850.setColor(Color.RED);
-        dataGraph.addSeries(series_850);
+        series_HBO2 = new LineGraphSeries<>();
+        series_HBO2.setColor(Color.RED);
+        dataGraph.addSeries(series_HBO2);
 
-        if(series_850 != null && series_730 != null)
+        if(series_HB != null && series_HBO2 != null)
             Log.d(TAG, "Series initialized");
 
         mTimer = new Timer();
         mGetDataClass = new getDataClass();
-    }
-
-
-
-
-    // Populates expandable list view with GATT services found
-    // The child views are the characteristics of each service
-    private void displayGattServices(List<BluetoothGattService> gattServices) {
-
-        if (gattServices == null)
-            return;
-
-        String uuid = null;
-        String unknownServiceString = getResources().getString(R.string.unknown_service);
-        String unknownCharaString = getResources().getString(R.string.unknown_characteristic);
-        ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<HashMap<String, String>>();
-        ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData
-                = new ArrayList<ArrayList<HashMap<String, String>>>();
-        mGattCharacteristics = new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
-
-        // Loops through available GATT Services
-        for (BluetoothGattService gattService : gattServices) {
-
-            HashMap<String, String> currentServiceData = new HashMap<String, String>();
-            uuid = gattService.getUuid().toString();
-            currentServiceData.put(LIST_NAME, SampleGattAttributes.lookup(uuid, unknownServiceString));
-            currentServiceData.put(LIST_UUID, uuid);
-            gattServiceData.add(currentServiceData);
-
-            ArrayList<HashMap<String, String>> gattCharacteristicGroupData =
-                    new ArrayList<HashMap<String, String>>();
-            List<BluetoothGattCharacteristic> gattCharacteristics =
-                    gattService.getCharacteristics();
-            ArrayList<BluetoothGattCharacteristic> charas =
-                    new ArrayList<BluetoothGattCharacteristic>();
-
-            // Loops through available Characteristics.
-            for (BluetoothGattCharacteristic gattCharacteristic : gattCharacteristics) {
-                charas.add(gattCharacteristic);
-                HashMap<String, String> currentCharaData = new HashMap<String, String>();
-                uuid = gattCharacteristic.getUuid().toString();
-                currentCharaData.put(LIST_NAME, SampleGattAttributes.lookup(uuid, unknownCharaString));
-                currentCharaData.put(LIST_UUID, uuid);
-                gattCharacteristicGroupData.add(currentCharaData);
-            }
-
-            mGattCharacteristics.add(charas);
-            gattCharacteristicData.add(gattCharacteristicGroupData);
-        }
-
-        SimpleExpandableListAdapter gattServiceAdapter = new SimpleExpandableListAdapter(
-                this,
-                gattServiceData,
-                android.R.layout.simple_expandable_list_item_2,
-                new String[]{LIST_NAME, LIST_UUID},
-                new int[]{android.R.id.text1, android.R.id.text2},
-                gattCharacteristicData,
-                android.R.layout.simple_expandable_list_item_2,
-                new String[]{LIST_NAME, LIST_UUID},
-                new int[]{android.R.id.text1, android.R.id.text2}
-        );
-
-        mGattServicesList.setAdapter(gattServiceAdapter);
-    }
-
-
-
-
-    // If a given GATT characteristic is selected, get its information and display in text view
-    private final ExpandableListView.OnChildClickListener servicesListClickListner = new ExpandableListView.OnChildClickListener() {
-
-        public boolean onChildClick(ExpandableListView parent, View v, int groupPosition,
-                                    int childPosition, long id) {
-
-            if (mGattCharacteristics != null) {
-
-                final BluetoothGattCharacteristic characteristic = mGattCharacteristics.get(groupPosition).get(childPosition);
-                final int charaProp = characteristic.getProperties();
-
-                if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
-                    // If there is an active notification on a characteristic, clear
-                    // it first so it doesn't update the data field on the user interface.
-                    if (mNotifyCharacteristic != null) {
-                        mBluetoothLeService.setCharacteristicNotification(
-                                mNotifyCharacteristic, false);
-                        mNotifyCharacteristic = null;
-                    }
-                    mBluetoothLeService.readCharacteristic(characteristic);
-                }
-
-                if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
-                    mNotifyCharacteristic = characteristic;
-                    mBluetoothLeService.setCharacteristicNotification(
-                            characteristic, true);
-                }
-                return true;
-            }
-            return false;
-        }
-    };
-
-
-
-
-    //Displays the characteristic info on the UI
-    public void displayChractersiticInfo(String data){
-        if (data != null) {
-            //displayCharacterstic.setText(data);
-        }
     }
 
 
@@ -636,15 +710,86 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //Class for creating oxygenated and deoxygenated hemoglobin arrays
+    public class bvoxy {
+
+        //Constants for blood oxygen calculation
+        private final double eHB_730 = 1.1022;
+        private final double eHBO2_730 = 0.390;
+        private final double eHB_850 = 0.69132;
+        private final double eHBO2_850 = 1.058;
+        private final double L = 0.015;
+
+        //Full arrays that are initialized to input readings
+        private ArrayList<Double> w730;
+        private ArrayList<Double> w850;
+        private ArrayList<Double> time;
+
+        //Baseline values
+        private Double baseline_730;
+        private Double baseline_850;
+
+        //Optical density arrays
+        private ArrayList<Double> OD_730;
+        private ArrayList<Double> OD_850;
+
+
+        bvoxy(ArrayList<Double> temp730, ArrayList<Double> temp850) {
+
+            w730 = temp730;
+            w850 = temp850;
+
+            OD_730 = new ArrayList<>();
+            OD_850 = new ArrayList<>();
+
+            HB = new ArrayList<>();
+            HBO2 = new ArrayList<>();
+
+            getBaseLine();
+        }
+
+
+        //Creating the baseline arrays from first X data samples
+        private void getBaseLine() {
+
+            Double sum730 = 0.0;
+            Double sum850 = 0.0;
+
+            for (int i = 0; i < w730.size(); ++i) {
+                sum730 += w730.get(i);
+                sum850 += w850.get(i);
+            }
+
+            baseline_730 = sum730 / 10;
+            baseline_850 = sum850 / 10;
+        }
+
+
+        //Getting the oxygenated hemoglobin levels from voltages and adding to the given arraylist
+        public void addHemoglobin(ArrayList<Double> HB, ArrayList<Double> HBO2, int i, Double reading_850, Double reading_730) {
+
+            w850.add(reading_850);
+            w730.add(reading_730);
+
+            OD_730.add(-Math.log10(w730.get(i) / baseline_730));
+            OD_850.add(-Math.log10(w850.get(i) / baseline_850));
+
+            HB.add(((OD_850.get(i) * eHBO2_730) - (OD_730.get(i) * eHBO2_850)) / ((eHBO2_730 * eHB_850) - (eHBO2_850 * eHB_730)) / L);
+            HBO2.add(((OD_730.get(i) * eHB_850) - (OD_850.get(i) * eHB_730)) / ((eHBO2_730 * eHB_850) - (eHBO2_850 * eHB_730)) / L);
+        }
+    }
+
+
+
 
     @Override
     protected void onResume() {
         super.onResume();
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         if (mBluetoothLeService != null) {
-            initialize();
-            final boolean result = mBluetoothLeService.connect(mDeviceAddress);
-            Log.d(TAG, "Connect request result=" + result);
+            //initialize();
+            //final boolean result = mBluetoothLeService.connect(mDeviceAddress);
+            //Log.d(TAG, "Connect request result=" + result);
         }
     }
 
