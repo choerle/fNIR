@@ -42,7 +42,12 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 
+
+
 public class DeviceControlActivity extends AppCompatActivity {
+
+
+
 
     //Constants
     private final String TAG = "DeviceControlActivity";
@@ -53,14 +58,13 @@ public class DeviceControlActivity extends AppCompatActivity {
 
     //UI variables
     private TextView dataField;
-    private TextView displayCharacterstic;
     private ExpandableListView mGattServicesList;
     private GraphView dataGraph;
 
     //Graphing variables
     private int count = 0;
     private int time = 0;
-    private int samplingRate = 250; //In milliseconds
+    private int samplingRate = 1000; //In milliseconds
     private LineGraphSeries<DataPoint> series_730;
     private LineGraphSeries<DataPoint> series_850;
     private getDataClass mGetDataClass;
@@ -80,6 +84,8 @@ public class DeviceControlActivity extends AppCompatActivity {
     private boolean filledGraph = false;    //If there is data on the graph, this is true
 
 
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -87,19 +93,20 @@ public class DeviceControlActivity extends AppCompatActivity {
         setContentView(R.layout.activity_device_control);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-
         //UI variable initializations
         mGattServicesList = findViewById(R.id.lvExp);
         mGattServicesList.setOnChildClickListener(servicesListClickListner);
         dataField = findViewById(R.id.dataField);
-        displayCharacterstic = findViewById(R.id.displayCharacteristic);
 
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
-        dataGraph.setTitle("Raw fNIR Data");
-        dataGraph.setTitleColor(Color.WHITE);
+
+        dataGraph.getViewport().setYAxisBoundsManual(true);
+        dataGraph.getViewport().setMinY(0);
+        dataGraph.getViewport().setMaxY(3000);
+        dataGraph.getViewport().setXAxisBoundsManual(true);
+
         dataGraph.setTitleTextSize(110);
-        //dataGraph.getViewport().setScrollable(true);
         dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(70);
         dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(70);
         dataGraph.getGridLabelRenderer().setGridColor(Color.WHITE);
@@ -107,10 +114,14 @@ public class DeviceControlActivity extends AppCompatActivity {
         dataGraph.getGridLabelRenderer().setVerticalAxisTitleColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setHorizontalLabelsColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setVerticalLabelsColor(Color.WHITE);
+        dataGraph.setTitleColor(Color.WHITE);
+        dataGraph.setTitle("Raw fNIR Data");
         dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
         dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Intensity (Voltage)");
 
         initializeSeries();
+        dataGraph.addSeries(series_730);
+        dataGraph.addSeries(series_850);
 
         mTimer = new Timer();
 
@@ -129,6 +140,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //TODO: is a disconnect button neccesary?
     //Options menu for connecting and disconnecting from device
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -137,7 +149,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         //Determining what buttons should be available when connected to a device
         if (mConnected) {
             menu.findItem(R.id.menu_connect).setVisible(false);
-            menu.findItem(R.id.menu_disconnect).setVisible(true);
+            //menu.findItem(R.id.menu_disconnect).setVisible(true);
 
             //Determining what buttons should be available when the app is graphing
             if (graphing) {
@@ -165,7 +177,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         //When disconnected, the only button should be to connect
         else if(!mConnected){
             menu.findItem(R.id.menu_connect).setVisible(true);
-            menu.findItem(R.id.menu_disconnect).setVisible(false);
+            //menu.findItem(R.id.menu_disconnect).setVisible(false);
             menu.findItem(R.id.displayServices).setVisible(false);
             menu.findItem(R.id.startData).setVisible(false);
             menu.findItem(R.id.stopData).setVisible(false);
@@ -177,7 +189,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //TODO: remove any options that are impossible
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
@@ -191,14 +202,14 @@ public class DeviceControlActivity extends AppCompatActivity {
                 return true;
 
             //Disconnect device and stop collecting data
-            case R.id.menu_disconnect:
+            /*case R.id.menu_disconnect:
                 if (mConnected) {
                     Log.d(TAG, "Menu item disconnect: trying to disconnect");
                     stopDataCollection();
                     mBluetoothLeService.disconnect();
                     mBluetoothLeService.close();
                 }
-                return true;
+                return true;*/
 
             //Begins collection and graphing of data
             case R.id.startData:
@@ -347,6 +358,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
                 //Determines when the data sample is taken, in seconds
                 time = count*samplingRate/1000;
+                dataField.setText(String.valueOf(time));
 
                 String data = mBluetoothLeService.readVoltages();
 
@@ -366,19 +378,19 @@ public class DeviceControlActivity extends AppCompatActivity {
 
                 Log.d(TAG, data_730s + "           " + String.valueOf(data_730));
 
-                dataField.setText(String.valueOf(data_730) + " " + String.valueOf(data_730));
-
                 //Increment count in order to increment time
                 ++count;
             }
         }
 
 
+        //TODO: is this way of graphing slow?
         //Graphs data by adding to old series and plotting it
         public void graphData(double value, LineGraphSeries<DataPoint> series){
             DataPoint dataPoint = new DataPoint(time, value);
-            series.appendData(dataPoint, true,1000);
-            dataGraph.addSeries(series);
+            series.appendData(dataPoint, true,5000);
+            dataGraph.getViewport().setMinX(0);
+            dataGraph.getViewport().setMaxX(time++);
         }
     }
 
@@ -400,6 +412,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Clears when the graph is long clicked, first stops data collection then creates new series
     public void clearGraph(){
         filledGraph = false;
+        dataField.setText("...");
         Log.d(TAG, "Graph cleared");
         stopDataCollection();
         initializeSeries();
@@ -539,7 +552,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Displays the characteristic info on the UI
     public void displayChractersiticInfo(String data){
         if (data != null) {
-            displayCharacterstic.setText(data);
+            //displayCharacterstic.setText(data);
         }
     }
 
@@ -642,7 +655,6 @@ public class DeviceControlActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         clearGraph();
-        stopDataCollection();
         unregisterReceiver(mGattUpdateReceiver);
         unbindService(mServiceConnection);
         mBluetoothLeService = null;

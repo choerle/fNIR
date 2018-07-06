@@ -196,6 +196,9 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
     //Class to handle scan results
     private class BtleScanCallback extends ScanCallback {
 
+        //Is true if the incoming device is already on the list
+        private boolean duplicate;
+
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             addScanResult(result);
@@ -215,10 +218,18 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
 
         //Add found devices to UI
         private void addScanResult(ScanResult result) {
-            BluetoothDevice device = result.getDevice();
 
-            if(device.getName() != null) {
-                String deviceAddress = device.getAddress();
+            //New bluetooth device
+            BluetoothDevice device = result.getDevice();
+            String deviceAddress = device.getAddress();
+
+            for (String key : mScanResults.keySet()) {
+                if(key.equals(deviceAddress))
+                    duplicate = true;
+            }
+
+            //Removing any NULL devices and any duplicate devices
+            if(device.getName() != null && !duplicate) {
                 mScanResults.put(deviceAddress, device);
                 mBTDevices.add(device);
                 mDeviceListAdapter = new DeviceListAdapter(DeviceScanActivity.this, R.layout.device_adapter_view, mBTDevices);

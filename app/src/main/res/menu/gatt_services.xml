@@ -22,14 +22,11 @@
     <item
         android:id="@+id/returnTo"
         android:orderInCategory="108"
-        android:title="Return To Scanning" />
+        android:title="Home" />
     <item
         android:id="@+id/menu_connect"
         android:orderInCategory="102"
         android:title="@string/menu_connect" />
-    <item android:id="@+id/menu_disconnect"
-        android:title="@string/menu_disconnect"
-        android:orderInCategory="103"/>
     <item
         android:id="@+id/startData"
         android:orderInCategory="104"

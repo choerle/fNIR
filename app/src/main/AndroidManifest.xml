@@ -24,7 +24,7 @@
         <activity android:name=".DeviceScanActivity"
             android:parentActivityName=".MainActivity" />
         <activity android:name=".DeviceControlActivity"
-            android:parentActivityName=".MainActivity"/>
+            android:parentActivityName=".DeviceScanActivity"/>
         <service android:name=".BluetoothLeService" android:enabled="true"/>
     </application>
 

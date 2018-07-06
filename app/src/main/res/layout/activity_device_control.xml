@@ -16,9 +16,8 @@
 
         <com.jjoe64.graphview.GraphView
             android:id="@+id/dataGraph"
-            style="@style/DataText.Small"
-            android:layout_width="wrap_content"
-            android:layout_height="288dp"
+            android:layout_width="match_parent"
+            android:layout_height="323dp"
             android:layout_marginLeft="10dp"
             android:layout_marginRight="10dp"
             android:layout_marginTop="10dp" />
@@ -28,7 +27,7 @@
             android:id="@+id/lvExp"
             style="@style/DataText.Small"
             android:layout_width="match_parent"
-            android:layout_height="161dp"
+            android:layout_height="141dp"
             android:layout_alignParentBottom="true"
             android:layout_marginBottom="0dp" />
 
@@ -37,19 +36,11 @@
             style="@style/DataText.Small"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_above="@+id/displayCharacteristic"
-            android:layout_centerHorizontal="true"
-            android:text="..."
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/displayCharacteristic"
-            style="@style/DataText.Small"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             android:layout_above="@+id/lvExp"
             android:layout_centerHorizontal="true"
-            android:text="..." />
+            android:layout_marginTop="333dp"
+            android:text="..."
+            android:textStyle="bold" />
 
 
     </RelativeLayout>
