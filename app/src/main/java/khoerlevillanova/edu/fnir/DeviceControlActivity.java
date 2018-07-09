@@ -29,6 +29,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ExpandableListView;
+import android.widget.ProgressBar;
 import android.widget.SimpleExpandableListAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -61,6 +62,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private TextView dataField_850;
     private TextView timeField;
     private GraphView dataGraph;
+    private ProgressBar baselineProgress;
 
     //Data storage variables
     private bvoxy mBvoxy;
@@ -107,6 +109,8 @@ public class DeviceControlActivity extends AppCompatActivity {
         timeField = findViewById(R.id.timeField);
         dataField_730 = findViewById(R.id.data730);
         dataField_850 = findViewById(R.id.data850);
+        baselineProgress = findViewById(R.id.baselineProgress);
+        baselineProgress.setVisibility(View.INVISIBLE);
 
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
@@ -231,6 +235,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                 if(!graphing && mConnected) {
                     graphingRaw = true;
                     Log.d(TAG, "Menu item startData: trying to startData");
+                    //If the data collection was stopped, continue to add to same graph
                     if(filledGraph){
                         mTimer = new Timer();
                         mGetDataClass = new getDataClass();
@@ -429,7 +434,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             Log.d(TAG, "Reading data");
 
             //Determines when the data sample is taken, in seconds
-            time = count * samplingRate / 1000;
+            time = ((double)count) * samplingRate / 1000;
 
             //Updating the UI to display the time at which each sample is taken
             timeField.setText(String.valueOf(time));
@@ -472,8 +477,13 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Getting the first 20 samples for a baseline
             if (count < 20) {
 
-                if(count == 0)
+                if(count == 0) {
                     Toast.makeText(DeviceControlActivity.this, "Creating Baseline...", Toast.LENGTH_LONG).show();
+                    baselineProgress.setVisibility(View.VISIBLE);
+                }
+
+                //Incrementing the progress bar
+                baselineProgress.incrementProgressBy(5);
 
                 Log.d(TAG, "Reading data");
 
@@ -504,6 +514,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                 Log.d(TAG, "BEGINNING DATA ANALYSIS");
                 mBvoxy = new bvoxy(data_730, data_850);
                 count = 0;
+                baselineProgress.setVisibility(View.INVISIBLE);
                 gettingBaseline = false;
             }
         }
