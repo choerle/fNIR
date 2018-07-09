@@ -279,8 +279,8 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Return home
             case R.id.returnTo:
                 Log.d(TAG, "Returning home");
+                clearGraph();
                 Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
-                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(i);
                 return true;
         }
@@ -591,7 +591,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         timeField.setText("...");
         Log.d(TAG, "Graph cleared");
         stopDataCollection();
-        initializeSeries();
+        //initializeSeries();
     }
 
 
@@ -803,5 +803,10 @@ public class DeviceControlActivity extends AppCompatActivity {
         unregisterReceiver(mGattUpdateReceiver);
         unbindService(mServiceConnection);
         mBluetoothLeService = null;
+        finish();
     }
+
+
+
+    //TODO: home button doesnt work if graphing
 }
