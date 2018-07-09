@@ -26,7 +26,8 @@
                 android:layout_marginLeft="10dp"
                 android:layout_marginRight="10dp"
                 android:layout_marginTop="10dp"
-                android:scaleType="fitXY" />
+                android:scaleType="fitXY"
+                android:src="@drawable/concussion" />
 
             <TextView
                 android:id="@+id/concussion_textView"
