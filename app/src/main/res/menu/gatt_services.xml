@@ -36,11 +36,15 @@
         android:orderInCategory="104"
         android:title="Start Data Collection" />
     <item
+        android:id="@+id/continueGraph"
+        android:orderInCategory="105"
+        android:title="Continue" />
+    <item
         android:id="@+id/clearGraph"
-        android:orderInCategory="106"
+        android:orderInCategory="107"
         android:title="Clear Graph" />
     <item
         android:id="@+id/stopData"
-        android:orderInCategory="105"
+        android:orderInCategory="106"
         android:title="Stop Data Collection" />
 </menu>
