@@ -51,6 +51,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Timer;
@@ -85,7 +86,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private ArrayList<Double> data_time;
     private ArrayList<Double> HB;
     private ArrayList<Double> HBO2;
-    private Double[][] data_list;
+    private String[][] data_list;
 
     //Graphing variables
     private boolean graphingRaw;
@@ -173,15 +174,16 @@ public class DeviceControlActivity extends AppCompatActivity {
             public void onClick(View v) {
 
                 //Combining the time, 730, and 850 arrays into one, data_list
-                //The maxtrix is of size: data_time.size X 3
+                //The matrix is of size: data_time.size X 3
                 //First column is time, second is 730, and third is 850
                 combineArrays();
 
                 String filename = editText_fileName.getText().toString();
-                String savedData_730 = data_730.get(0).toString();
 
-                if (!filename.equals("") && !savedData_730.equals("")) {
-                    saveTextAsFile(filename, savedData_730);
+                String saved_data = Arrays.toString(data_list);
+
+                if (!filename.equals("") && !saved_data.equals("")) {
+                    saveTextAsFile(filename, saved_data);
                 }
             }
         });
@@ -910,15 +912,15 @@ public class DeviceControlActivity extends AppCompatActivity {
 
     //Combining the time, 730, and 850 array list into one matrix
     public void combineArrays(){
-        data_list = new Double[data_time.size()][3];
+        data_list = new String[data_time.size()][3];
         for(int i = 0; i < data_time.size(); ++i){
-            data_list[i][0] = data_time.get(i);
+            data_list[i][0] = data_time.get(i).toString();
         }
         for(int i = 0; i < data_730.size(); ++i){
-            data_list[i][0] = data_730.get(i);
+            data_list[i][0] = data_730.get(i).toString();
         }
         for(int i = 0; i < data_850.size(); ++i){
-            data_list[i][0] = data_850.get(i);
+            data_list[i][0] = data_850.get(i).toString();
         }
     }
 
