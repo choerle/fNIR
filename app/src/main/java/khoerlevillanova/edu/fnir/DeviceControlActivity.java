@@ -306,6 +306,12 @@ public class DeviceControlActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
 
+            //Go to activity to load old data files
+            case R.id.load:
+                Intent I = new Intent(DeviceControlActivity.this, oldData.class);
+                startActivity(I);
+                return true;
+
             //Connect to device
             case R.id.menu_connect:
                 if (!mConnected) {

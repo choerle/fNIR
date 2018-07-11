@@ -21,30 +21,34 @@
         app:showAsAction="always" />
     <item
         android:id="@+id/returnTo"
-        android:orderInCategory="108"
+        android:orderInCategory="109"
         android:title="Home" />
     <item
         android:id="@+id/menu_connect"
         android:orderInCategory="102"
         android:title="@string/menu_connect" />
     <item
-        android:id="@+id/dataAnalysis"
+        android:id="@+id/load"
         android:orderInCategory="103"
+        android:title="Load Stored Data" />
+    <item
+        android:id="@+id/dataAnalysis"
+        android:orderInCategory="104"
         android:title="Start Data Analysis" />
     <item
         android:id="@+id/startData"
-        android:orderInCategory="104"
+        android:orderInCategory="105"
         android:title="Start Data Collection" />
     <item
         android:id="@+id/continueGraph"
-        android:orderInCategory="105"
+        android:orderInCategory="106"
         android:title="Continue" />
     <item
         android:id="@+id/clearGraph"
-        android:orderInCategory="107"
+        android:orderInCategory="108"
         android:title="Clear Graph" />
     <item
         android:id="@+id/stopData"
-        android:orderInCategory="106"
+        android:orderInCategory="107"
         android:title="Stop Data Collection" />
 </menu>
