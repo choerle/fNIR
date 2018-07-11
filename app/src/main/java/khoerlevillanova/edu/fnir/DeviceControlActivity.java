@@ -11,6 +11,7 @@ connected, there is a menu to chose what to do with the device.
  */
 
 
+import android.Manifest;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
@@ -21,8 +22,12 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.os.Build;
+import android.os.Environment;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -30,6 +35,8 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ExpandableListView;
 import android.widget.ProgressBar;
 import android.widget.SimpleExpandableListAdapter;
@@ -38,6 +45,11 @@ import android.widget.Toast;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -99,6 +111,9 @@ public class DeviceControlActivity extends AppCompatActivity {
     private boolean graphing = false;       //If the application is actively updating the graph, this is true
     private boolean filledGraph = false;    //If there is data on the graph, this is true
 
+    //Variables for saving data
+    EditText editText_fileName;
+    Button button_saveData;
 
 
 
@@ -113,6 +128,14 @@ public class DeviceControlActivity extends AppCompatActivity {
         timeField = findViewById(R.id.timeField);
         dataField_730 = findViewById(R.id.data730);
         dataField_850 = findViewById(R.id.data850);
+
+        //Initializations for save data
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
+        }
+
+        editText_fileName = findViewById(R.id.editText_fileName);
+        button_saveData = findViewById(R.id.button_save_data);
 
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
@@ -143,10 +166,56 @@ public class DeviceControlActivity extends AppCompatActivity {
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+
+        button_saveData.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String filename = editText_fileName.getText().toString();
+                String savedData_730 = data_730.get(0).toString();
+
+                if (!filename.equals("") && !savedData_730.equals("")) {
+                    saveTextAsFile(filename, savedData_730);
+                }
+            }
+        });
     }
 
+    //Method for saving the text file of data
+    private void saveTextAsFile(String filename, String content) {
+        String fileName = filename + ".txt";
 
+        //Create File
+        File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
 
+        //Write to File
+        try {
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(content.getBytes());
+            fos.close();
+            Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "File not Found!", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error Saving!", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    //Request permissions for save data
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case 1000:
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Permissions Granted!", Toast.LENGTH_SHORT).show();
+                }
+                else {
+                    Toast.makeText(this, "Permission not Granted!", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+        }
+    }
 
     //Options menu for connecting and disconnecting from device
     @Override
