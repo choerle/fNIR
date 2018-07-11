@@ -182,7 +182,11 @@ public class DeviceControlActivity extends AppCompatActivity {
 
                 //String saved_data = Arrays.toString(data_list[][0]);
 
-                String saved_data = data_730.toString();
+                String saved_data1 = data_730.toString();
+                String saved_data2 = data_time.toString();
+                String saved_data3 = data_850.toString();
+                String saved_data = new String(saved_data1 + "-----------------------------" + saved_data2 +
+                        "----------------------------------" + saved_data3);
 
                 if (!filename.equals("") && !saved_data.equals("")) {
                     saveTextAsFile(filename, saved_data);
