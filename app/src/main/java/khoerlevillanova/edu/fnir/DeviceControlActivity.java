@@ -85,6 +85,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private ArrayList<Double> data_time;
     private ArrayList<Double> HB;
     private ArrayList<Double> HBO2;
+    private Double[][] data_list;
 
     //Graphing variables
     private boolean graphingRaw;
@@ -170,6 +171,12 @@ public class DeviceControlActivity extends AppCompatActivity {
         button_saveData.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+                //Combining the time, 730, and 850 arrays into one
+                //The maxtrix is of size: data_time.size X 3
+                //First column is time, second is 730, and third is 850
+                combineArrays();
+
                 String filename = editText_fileName.getText().toString();
                 String savedData_730 = data_730.get(0).toString();
 
@@ -179,6 +186,9 @@ public class DeviceControlActivity extends AppCompatActivity {
             }
         });
     }
+
+
+
 
     //Method for saving the text file of data
     private void saveTextAsFile(String filename, String content) {
@@ -202,6 +212,10 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
     }
 
+
+
+
+
     //Request permissions for save data
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -216,6 +230,9 @@ public class DeviceControlActivity extends AppCompatActivity {
                 }
         }
     }
+
+
+
 
     //Options menu for interacting with selected BLE device
     @Override
@@ -464,6 +481,11 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Determines when the data sample is taken, in seconds
             time = ((double)count) * samplingRate / 1000;
 
+            //Adding new readings to the array lists
+            data_730.add(data_730_d);
+            data_850.add(data_850_d);
+            data_time.add(time);
+
             //Adding voltages to graph
             graphData(data_730_d, series_730);
             graphData(data_850_d, series_850);
@@ -499,6 +521,8 @@ public class DeviceControlActivity extends AppCompatActivity {
                 Log.d(TAG, "BEGINNING DATA ANALYSIS");
                 mBvoxy = new bvoxy(data_730, data_850);
                 count = 0;
+                data_730 = new ArrayList<>();
+                data_850 = new ArrayList<>();
                 gettingBaseline = false;
             }
         }
@@ -513,6 +537,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Adding new readings to the array lists
             data_730.add(data_730_d);
             data_850.add(data_850_d);
+            data_time.add(time);
 
             //Converting the 2 voltage readings into oxygenation readings
             mBvoxy.addHemoglobin(HB, HBO2, count, data_850_d, data_730_d);
@@ -878,6 +903,23 @@ public class DeviceControlActivity extends AppCompatActivity {
                 .setTitle("Baseline Test Required");
         AlertDialog dialog = builder.create();
         dialog.show();
+    }
+
+
+
+
+    //Combining the time, 730, and 850 array list into one matrix
+    public void combineArrays(){
+        data_list = new Double[data_time.size()][3];
+        for(int i = 0; i < data_time.size(); ++i){
+            data_list[i][0] = data_time.get(i);
+        }
+        for(int i = 0; i < data_730.size(); ++i){
+            data_list[i][0] = data_730.get(i);
+        }
+        for(int i = 0; i < data_850.size(); ++i){
+            data_list[i][0] = data_850.get(i);
+        }
     }
 
 
