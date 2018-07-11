@@ -180,7 +180,9 @@ public class DeviceControlActivity extends AppCompatActivity {
 
                 String filename = editText_fileName.getText().toString();
 
-                String saved_data = Arrays.toString(data_list);
+                //String saved_data = Arrays.toString(data_list[][0]);
+
+                String saved_data = data_730.toString();
 
                 if (!filename.equals("") && !saved_data.equals("")) {
                     saveTextAsFile(filename, saved_data);
