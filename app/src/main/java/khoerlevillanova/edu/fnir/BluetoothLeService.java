@@ -301,19 +301,47 @@ public class BluetoothLeService extends Service {
 
         BluetoothGattCharacteristic characteristic = mBluetoothGatt.getService(UUID_SERVICE)
                 .getCharacteristic(UUID_CHARACTERISTIC);
-        mBluetoothGatt.readCharacteristic(characteristic);
 
-        final byte[] data_in = characteristic.getValue();
-        String data = null;
+        if(characteristic != null) {
+            mBluetoothGatt.readCharacteristic(characteristic);
 
-        if (data_in != null && data_in.length > 0) {
-            final StringBuilder stringBuilder = new StringBuilder(data_in.length);
-            for (byte byteChar : data_in)
-                stringBuilder.append(String.format("%02X ", byteChar));
-            data = stringBuilder.toString();
+            final byte[] data_in = characteristic.getValue();
+            String data = null;
+
+            if (data_in != null && data_in.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data_in.length);
+                for (byte byteChar : data_in)
+                    stringBuilder.append(String.format("%02X ", byteChar));
+                data = stringBuilder.toString();
+            }
+
+            return data;
         }
+        else
+            return null;
+    }
 
-        return data;
+
+
+
+    public void setCharacteristicNotification() {
+        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
+            Log.d(TAG, "BluetoothAdapter not initialized");
+            return;
+        }
+        BluetoothGattCharacteristic characteristic = mBluetoothGatt.getService(UUID_SERVICE)
+                .getCharacteristic(UUID_CHARACTERISTIC);
+        mBluetoothGatt.setCharacteristicNotification(characteristic, true);
+
+        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID_CHARACTERISTIC);
+        descriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
+        mBluetoothGatt.writeDescriptor(descriptor);
+    }
+
+
+    // Characteristic notification
+    public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
     }
 
 

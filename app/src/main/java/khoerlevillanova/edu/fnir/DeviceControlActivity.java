@@ -78,7 +78,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private boolean graphingRaw;
     private int count = 0;
     private double time = 0;
-    private int samplingRate = 500; //In milliseconds
+    private int samplingRate = 100; //In milliseconds
     private LineGraphSeries<DataPoint> series_HB;
     private LineGraphSeries<DataPoint> series_HBO2;
     private LineGraphSeries<DataPoint> series_730;
@@ -148,7 +148,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //Options menu for connecting and disconnecting from device
+    //Options menu for interacting with selected BLE device
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.gatt_services, menu);
@@ -196,6 +196,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             menu.findItem(R.id.menu_connect).setVisible(true);
             //menu.findItem(R.id.menu_disconnect).setVisible(false);
             menu.findItem(R.id.startData).setVisible(false);
+            menu.findItem(R.id.continueGraph).setVisible(false);
             menu.findItem(R.id.dataAnalysis).setVisible(false);
             menu.findItem(R.id.stopData).setVisible(false);
             menu.findItem(R.id.clearGraph).setVisible(false);
@@ -236,27 +237,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                 if(!graphing && mConnected) {
                     graphingRaw = false;
                     Log.d(TAG, "Menu item startData: trying to startData");
-
-                    AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
-
-                    builder.setPositiveButton("Begin", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            initializeSeries();
-                            mTimer.schedule(mGetDataClass, 0, samplingRate);
-                        }
-                    });
-
-                    builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            // User cancelled the dialog
-                        }
-                    });
-
-                    builder.setMessage("In order to begin data collection, a five second baseline test must be collected.")
-                            .setTitle("Baseline Test Required");
-                    AlertDialog dialog = builder.create();
-                    dialog.show();
-
+                    createBeginBaselineDialog();
                     invalidateOptionsMenu();
                 }
                 return true;
@@ -312,6 +293,8 @@ public class DeviceControlActivity extends AppCompatActivity {
         private String data;
         private double data_730_d;
         private double data_850_d;
+        int start = 0;
+        int end = 10;
 
 
         //Constructor for continuing with a previous graph
@@ -362,7 +345,8 @@ public class DeviceControlActivity extends AppCompatActivity {
                 public void run() {
 
                     //Checking to see if data is available
-                    if (mBluetoothLeService.readVoltages() != null && mBluetoothLeService != null) {
+                    if (mBluetoothLeService.readVoltages() != null && mBluetoothLeService != null
+                            && mBluetoothLeService.readVoltages() != null) {
 
                         //This sets the data string equal to input string
                         getRawDataValues();
@@ -393,8 +377,15 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         //Getting the raw string from BLE device
         private void getRawDataValues(){
-            data = mBluetoothLeService.readVoltages();
-            Log.d(TAG, "Reading data:      " + data);
+
+            //The bluetooth service must not be null or without a try catch the app will crash
+            try {
+                data = mBluetoothLeService.readVoltages();
+                Log.d(TAG, "Reading data:      " + data);
+            }
+            catch(NullPointerException e){
+                Log.d(TAG, "NULL POINTER");
+            }
         }
 
 
@@ -494,7 +485,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             Log.d(TAG, "Graphing...");
             DataPoint dataPoint = new DataPoint(time, value);
-            series.appendData(dataPoint, true,1000);
+            series.appendData(dataPoint, true,10000);
         }
 
 
@@ -508,8 +499,16 @@ public class DeviceControlActivity extends AppCompatActivity {
             dataField_730.setText(String.valueOf(data_730_d));
             dataField_850.setText(String.valueOf(data_850_d));
 
-            dataGraph.getViewport().setMinX(0);
-            dataGraph.getViewport().setMaxX(((int)time)+1);
+            //Changing the axis every 10 seconds
+            if((int)time == end){
+                start = start + 10;
+                end = end + 10;
+            }
+
+            if ((int)time < end) {
+                dataGraph.getViewport().setMinX(start);
+                dataGraph.getViewport().setMaxX(end+1);
+            }
         }
     }
 
@@ -569,6 +568,8 @@ public class DeviceControlActivity extends AppCompatActivity {
             } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 Log.d(TAG, "Services discovered");
                 servicesAvailable = true;
+                //Settings notifications to determine when the data has changed
+                //mBluetoothLeService.setCharacteristicNotification();
                 invalidateOptionsMenu();
 
                 //If data is available
@@ -761,22 +762,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-
-    //TODO: fix this when hitting back while graphing
-    //When the back button is pressed
-    @Override
-    public void onBackPressed(){
-        if(mConnected && filledGraph) {
-            clearGraph();
-        }
-        unregisterReceiver(mGattUpdateReceiver);
-        unbindService(mServiceConnection);
-        mBluetoothLeService = null;
-        finish();
-    }
-
-
-
     //Sets up the progress dialog for creating the baseline test
     public void createBaselineProgress(){
         baselineProgress = new ProgressDialog(this);
@@ -784,6 +769,32 @@ public class DeviceControlActivity extends AppCompatActivity {
         baselineProgress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         baselineProgress.setMax(100);
         baselineProgress.setCancelable(false);
+    }
+
+
+
+
+    //Initializes and displays a dialog that asks the user if they want to start a baseline test
+    private void createBeginBaselineDialog(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+        builder.setPositiveButton("Begin", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                initializeSeries();
+                mTimer.schedule(mGetDataClass, 0, samplingRate);
+            }
+        });
+
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User cancelled the dialog
+            }
+        });
+
+        builder.setMessage("In order to begin data collection, a five second baseline test must be collected.")
+                .setTitle("Baseline Test Required");
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
 
@@ -802,19 +813,37 @@ public class DeviceControlActivity extends AppCompatActivity {
     }
 
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if(mConnected && filledGraph) {
+            clearGraph();
+        }
+        Log.d(TAG, "ON DESTROY CALLED");
+        unregisterReceiver(mGattUpdateReceiver);
+        unbindService(mServiceConnection);
+        mBluetoothLeService = null;
+    }
+
+
 
 
     @Override
     protected void onPause() {
         super.onPause();
-        clearGraph();
-        unregisterReceiver(mGattUpdateReceiver);
-        unbindService(mServiceConnection);
-        mBluetoothLeService = null;
+        Log.d(TAG, "ON PAUSE CALLED");
         finish();
     }
-    //TODO: readings dont start at same time
-    //TODO: wrong uuid
+
+
+
+
+    //When the back button is pressed
+    @Override
+    public void onBackPressed(){
+        Log.d(TAG, "ON BACK PRESSED CALLED");
+        finish();
+    }
 
 
     /*

@@ -52,7 +52,7 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
 
     //Constants
     private final String TAG = "DeviceScanActivity";
-    private final int SCAN_PERIOD = 5000;
+    private final int SCAN_PERIOD = 7000;
 
     //UI variables
     private ListView lvDevices;
