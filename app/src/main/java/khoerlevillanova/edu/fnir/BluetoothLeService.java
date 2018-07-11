@@ -17,6 +17,7 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -53,6 +54,7 @@ public class BluetoothLeService extends Service {
 
     public static final UUID UUID_SERVICE = UUID.fromString("f0001130-0451-4000-b000-000000000000");
     public static final UUID UUID_CHARACTERISTIC = UUID.fromString("f0001131-0451-4000-b000-000000000000");
+    public static final UUID UUID_DESCRIPTOR = UUID.fromString("f0002902-0451-4000-b000-000000000000");
 
 
 
@@ -332,16 +334,16 @@ public class BluetoothLeService extends Service {
         BluetoothGattCharacteristic characteristic = mBluetoothGatt.getService(UUID_SERVICE)
                 .getCharacteristic(UUID_CHARACTERISTIC);
         mBluetoothGatt.setCharacteristicNotification(characteristic, true);
-
-        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID_CHARACTERISTIC);
-        descriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-        mBluetoothGatt.writeDescriptor(descriptor);
     }
 
 
-    // Characteristic notification
-    public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-        broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+
+    public void setDescriptor(){
+        BluetoothGattCharacteristic characteristic = mBluetoothGatt.getService(UUID_SERVICE)
+                .getCharacteristic(UUID_CHARACTERISTIC);
+        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID_DESCRIPTOR);
+        descriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
+        mBluetoothGatt.writeDescriptor(descriptor);
     }
 
 
@@ -394,5 +396,28 @@ public class BluetoothLeService extends Service {
         if (mBluetoothGatt == null) return null;
 
         return mBluetoothGatt.getServices();
+    }
+
+
+
+
+    public static class SampleGattAttributes {
+        private static HashMap<String, String> attributes = new HashMap();
+        public static String HEART_RATE_MEASUREMENT = "00002a37-0000-1000-8000-00805f9b34fb";
+        public static String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
+
+        static {
+            // Sample Services.
+            attributes.put("0000180d-0000-1000-8000-00805f9b34fb", "Heart Rate Service");
+            attributes.put("0000180a-0000-1000-8000-00805f9b34fb", "Device Information Service");
+            // Sample Characteristics.
+            attributes.put(HEART_RATE_MEASUREMENT, "Heart Rate Measurement");
+            attributes.put("00002a29-0000-1000-8000-00805f9b34fb", "Manufacturer Name String");
+        }
+
+        public static String lookup(String uuid, String defaultName) {
+            String name = attributes.get(uuid);
+            return name == null ? defaultName : name;
+        }
     }
 }

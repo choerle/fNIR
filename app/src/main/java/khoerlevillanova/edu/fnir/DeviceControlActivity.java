@@ -445,7 +445,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
         //Getting the raw string from BLE device
-        private void getRawDataValues(){
+        public void getRawDataValues(){
 
             //The bluetooth service must not be null or without a try catch the app will crash
             try {
@@ -505,7 +505,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
         //After obtaining a baseline, read in the voltages and convert them
-        private void getData() {
+        public void getData() {
 
             //Determines when the data sample is taken, in seconds
             time = ((double)count) * samplingRate / 1000;
@@ -529,7 +529,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
         //Getting the 730 readings from the input string
-        private double get730(String data){
+        public double get730(String data){
 
             String data_730_1 = data.substring(0, 2);
             String data_730_2 = data.substring(3, 5);
@@ -539,7 +539,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
         //Getting the 850 readings from the input string
-        private double get850(String data){
+        public double get850(String data){
 
             String data_850_1 = data.substring(6, 8);
             String data_850_2 = data.substring(9, 11);
@@ -638,14 +638,28 @@ public class DeviceControlActivity extends AppCompatActivity {
                 Log.d(TAG, "Services discovered");
                 servicesAvailable = true;
                 //Settings notifications to determine when the data has changed
-                //mBluetoothLeService.setCharacteristicNotification();
+                mBluetoothLeService.setCharacteristicNotification();
+                //mBluetoothLeService.setDescriptor();
                 invalidateOptionsMenu();
 
                 //If data is available
             } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
                 String data = intent.getStringExtra(BluetoothLeService.EXTRA_DATA);
                 Log.d(TAG, "DATA: " + data);
-                //displayChractersiticInfo(data);
+                //The bluetooth service must not be null or without a try catch the app will crash
+                /*try {
+                    data = mBluetoothLeService.readVoltages();
+                    Log.d(TAG, "Reading data:      " + data);
+                }
+                catch(NullPointerException e){
+                    Log.d(TAG, "NULL POINTER");
+                }
+                String data_730_1 = data.substring(0, 2);
+                String data_730_2 = data.substring(3, 5);
+                String data_730s = new StringBuilder().append(data_730_1).append(data_730_2).toString();
+                dataField_730.setText(data_730s);*/
+
+
             }
         }
     };
