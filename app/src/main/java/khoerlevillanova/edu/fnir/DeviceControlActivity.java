@@ -172,7 +172,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
-                //Combining the time, 730, and 850 arrays into one
+                //Combining the time, 730, and 850 arrays into one, data_list
                 //The maxtrix is of size: data_time.size X 3
                 //First column is time, second is 730, and third is 850
                 combineArrays();
