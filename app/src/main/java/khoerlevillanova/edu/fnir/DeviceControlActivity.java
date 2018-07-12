@@ -912,14 +912,8 @@ public class DeviceControlActivity extends AppCompatActivity {
         // Pass null as the parent view because its going in the dialog layout
         View v = LayoutInflater.from(this).inflate(R.layout.save_file_dialog, null, false);
         builder.setView(v);
+        //This edit text is allows the user to enter a file name
         final EditText input = v.findViewById(R.id.username);
-
-        /*input.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        input.setLayoutParams(lp);
-        builder.setView(input);*/
 
         builder.setPositiveButton("Save", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
@@ -945,7 +939,14 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         builder.setCancelable(false);
         AlertDialog dialog = builder.create();
+
         dialog.show();
+
+        //Change the button's text color
+        Button positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button negativeButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+        positiveButton.setTextColor(Color.BLUE);
+        negativeButton.setTextColor(Color.BLUE);
     }
 
 
