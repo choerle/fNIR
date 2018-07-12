@@ -28,10 +28,6 @@
         android:orderInCategory="102"
         android:title="@string/menu_connect" />
     <item
-        android:id="@+id/load"
-        android:orderInCategory="103"
-        android:title="Load Stored Data" />
-    <item
         android:id="@+id/dataAnalysis"
         android:orderInCategory="104"
         android:title="Start Data Analysis" />

@@ -100,20 +100,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:layout_alignParentEnd="true"
-            android:layout_marginBottom="12dp"
-            android:layout_marginEnd="42dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="17dp"
             android:text="Save" />
-
-        <EditText
-            android:id="@+id/editText_fileName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignStart="@+id/dataGraph"
-            android:layout_alignTop="@+id/button_save_data"
-            android:ems="10"
-            android:inputType="text"
-            android:hint="File Name" />
 
     </RelativeLayout>
 

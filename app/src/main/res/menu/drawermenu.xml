@@ -1,25 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/home"
         android:title="Home"
         android:icon="@drawable/ic_home" />
     <item
         android:id="@+id/about"
-        android:title="About"
-        android:icon="@drawable/ic_about" />
+        android:icon="@drawable/ic_about"
+        android:title="About" />
+    <item
+        android:id="@+id/data"
+        android:icon="@drawable/ic_data"
+        android:title="Collect Data" />
     <item
         android:id="@+id/concussions"
         android:title="Concussions"
         android:icon="@drawable/ic_concussion"/>
     <item
+        android:id="@+id/furtherReading"
+        android:icon="@drawable/ic_further_reading"
+        android:title="Further Reading" />
+    <item
         android:id="@+id/usage"
         android:title="How To Use"
         android:icon="@drawable/ic_howtouse" />
-    <item
-        android:id="@+id/data"
-        android:title="Collect Data"
-        android:icon="@drawable/ic_data" />
     <item
         android:id="@+id/settings"
         android:title="Settings"

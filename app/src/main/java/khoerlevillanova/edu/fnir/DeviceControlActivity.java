@@ -32,14 +32,18 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ExpandableListView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.SimpleExpandableListAdapter;
+import android.widget.TableLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.jjoe64.graphview.GraphView;
@@ -114,8 +118,8 @@ public class DeviceControlActivity extends AppCompatActivity {
     private boolean filledGraph = false;    //If there is data on the graph, this is true
 
     //Variables for saving data
-    EditText editText_fileName;
     Button button_saveData;
+    private String fileName = null;
 
 
 
@@ -135,9 +139,8 @@ public class DeviceControlActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
         }
-
-        editText_fileName = findViewById(R.id.editText_fileName);
         button_saveData = findViewById(R.id.button_save_data);
+        button_saveData.setVisibility(View.INVISIBLE);
 
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
@@ -173,24 +176,16 @@ public class DeviceControlActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
+                createTextFile();
+
                 //Combining the time, 730, and 850 arrays into one, data_list
                 //The matrix is of size: data_time.size X 3
                 //First column is time, second is 730, and third is 850
-                combineArrays();
+                //combineArrays();
 
-                String filename = editText_fileName.getText().toString();
+                //String filename = editText_fileName.getText().toString();
 
                 //String saved_data = Arrays.toString(data_list[][0]);
-
-                String saved_data1 = data_730.toString();
-                String saved_data2 = data_time.toString();
-                String saved_data3 = data_850.toString();
-                String saved_data = new String(saved_data1 + "-----------------------------" + saved_data2 +
-                        "----------------------------------" + saved_data3);
-
-                if (!filename.equals("") && !saved_data.equals("")) {
-                    saveTextAsFile(filename, saved_data);
-                }
             }
         });
     }
@@ -210,32 +205,12 @@ public class DeviceControlActivity extends AppCompatActivity {
             FileOutputStream fos = new FileOutputStream(file);
             fos.write(content.getBytes());
             fos.close();
-            Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
             Toast.makeText(this, "File not Found!", Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             e.printStackTrace();
             Toast.makeText(this, "Error Saving!", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-
-
-
-
-    //Request permissions for save data
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case 1000:
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "Permissions Granted!", Toast.LENGTH_SHORT).show();
-                }
-                else {
-                    Toast.makeText(this, "Permission not Granted!", Toast.LENGTH_SHORT).show();
-                    finish();
-                }
         }
     }
 
@@ -306,12 +281,6 @@ public class DeviceControlActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
 
-            //Go to activity to load old data files
-            case R.id.load:
-                Intent I = new Intent(DeviceControlActivity.this, oldData.class);
-                startActivity(I);
-                return true;
-
             //Connect to device
             case R.id.menu_connect:
                 if (!mConnected) {
@@ -324,6 +293,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             case R.id.startData:
 
                 if(!graphing && mConnected) {
+                    button_saveData.setVisibility(View.INVISIBLE);
                     graphingRaw = true;
                     Log.d(TAG, "Menu item startData: trying to startData");
                     initializeSeries();
@@ -335,6 +305,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             case R.id.dataAnalysis:
 
                 if(!graphing && mConnected) {
+                    button_saveData.setVisibility(View.INVISIBLE);
                     graphingRaw = false;
                     Log.d(TAG, "Menu item startData: trying to startData");
                     createBeginBaselineDialog();
@@ -346,14 +317,15 @@ public class DeviceControlActivity extends AppCompatActivity {
             case R.id.continueGraph:
 
                 mGetDataClass = new getDataClass(true);
+                button_saveData.setVisibility(View.INVISIBLE);
                 mTimer = new Timer();
                 mTimer.schedule(mGetDataClass, 0, samplingRate);
-
                 return true;
 
             //Stops collection of data, but keeps graph intact
             case R.id.stopData:
                 if(graphing && mConnected) {
+                    button_saveData.setVisibility(View.VISIBLE);
                     Log.d(TAG, "Menu item stopData: trying to stopData");
                     stopDataCollection();
                 }
@@ -362,6 +334,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Stops collection of data and clears the graph
             case R.id.clearGraph:
                 if(mConnected && filledGraph) {
+                    button_saveData.setVisibility(View.INVISIBLE);
                     Log.d(TAG, "Menu item clearGraph: trying to clearGraph");
                     clearGraph();
                 }
@@ -428,7 +401,6 @@ public class DeviceControlActivity extends AppCompatActivity {
                 //Initialization of progress dialog for creating baseline text
                 createBaselineProgress();
                 gettingBaseline = true;
-                baselineProgress.show();
             }
 
             filledGraph = true;
@@ -891,6 +863,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         baselineProgress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         baselineProgress.setMax(100);
         baselineProgress.setCancelable(false);
+        baselineProgress.show();
     }
 
 
@@ -915,6 +888,62 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         builder.setMessage("In order to begin data collection, a five second baseline test must be collected.")
                 .setTitle("Baseline Test Required");
+        builder.setCancelable(false);
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+
+
+
+    //Alert dialog for entering name for text file to be saved as
+    private void createTextFile(){
+
+        String saved_data1 = data_730.toString();
+        String saved_data2 = data_time.toString();
+        String saved_data3 = data_850.toString();
+        final String saved_data = new String(saved_data1 + "-----------------------------" + saved_data2 +
+                "----------------------------------" + saved_data3);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+
+        // Inflate and set the layout for the dialog
+        // Pass null as the parent view because its going in the dialog layout
+        View v = LayoutInflater.from(this).inflate(R.layout.save_file_dialog, null, false);
+        builder.setView(v);
+        final EditText input = v.findViewById(R.id.username);
+
+        /*input.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        input.setLayoutParams(lp);
+        builder.setView(input);*/
+
+        builder.setPositiveButton("Save", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+
+                fileName = input.getText().toString();
+
+                if (fileName != null) {
+                    saveTextAsFile(fileName, saved_data);
+                    Toast.makeText(DeviceControlActivity.this, fileName + " saved", Toast.LENGTH_LONG).show();
+                }
+
+                else {
+                    Toast.makeText(DeviceControlActivity.this, "Could not save file", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+
+            }
+        });
+
+        builder.setCancelable(false);
         AlertDialog dialog = builder.create();
         dialog.show();
     }
@@ -933,6 +962,24 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
         for(int i = 0; i < data_850.size(); ++i){
             data_list[i][0] = data_850.get(i).toString();
+        }
+    }
+
+
+
+
+    //Request permissions for save data
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case 1000:
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Permissions Granted!", Toast.LENGTH_SHORT).show();
+                }
+                else {
+                    Toast.makeText(this, "Permission not Granted!", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
         }
     }
 
@@ -1003,26 +1050,5 @@ public class DeviceControlActivity extends AppCompatActivity {
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
-    }
-
-
-
-    //TODO: get name of all available charcteristics and services
-    //Finds the name of a service or characteristic based on a UUID
-    public static class SampleGattAttributes {
-
-        private static HashMap<String, String> attributes = new HashMap();
-
-        static {
-            // Sample Services.
-            attributes.put("0000180a-0000-1000-8000-00805f9b34fb", "Device Information Service");
-            // Sample Characteristics.
-            attributes.put("00002a29-0000-1000-8000-00805f9b34fb", "Manufacturer Name String");
-        }
-
-        public static String lookup(String uuid, String defaultName) {
-            String name = attributes.get(uuid);
-            return name == null ? defaultName : name;
-        }
     }*/
 }
