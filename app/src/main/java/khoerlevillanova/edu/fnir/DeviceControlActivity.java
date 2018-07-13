@@ -24,6 +24,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
@@ -73,8 +74,6 @@ public class DeviceControlActivity extends AppCompatActivity {
     private final String TAG = "DeviceControlActivity";
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
-    //private final String LIST_NAME = "NAME";
-    //private final String LIST_UUID = "UUID";
 
     //UI variables
     private TextView dataField_730;
@@ -96,7 +95,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private boolean graphingRaw;
     private int count = 0;
     private double time = 0;
-    private int samplingRate = 100; //In milliseconds
+    private int samplingRate = 250; //In milliseconds
     private LineGraphSeries<DataPoint> series_HB;
     private LineGraphSeries<DataPoint> series_HBO2;
     private LineGraphSeries<DataPoint> series_730;
@@ -105,12 +104,9 @@ public class DeviceControlActivity extends AppCompatActivity {
     private Timer mTimer;
 
     //Bluetooth variables
-    private boolean servicesAvailable = false; //if true services have been discovered
     private String mDeviceName;
     private String mDeviceAddress;
     private BluetoothLeService mBluetoothLeService;
-    //private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics = new ArrayList();
-    //private BluetoothGattCharacteristic mNotifyCharacteristic;
 
     //Management of devices state
     private boolean mConnected = false;     //If connected to a device, this is true
@@ -175,43 +171,9 @@ public class DeviceControlActivity extends AppCompatActivity {
         button_saveData.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
                 createTextFile();
-
-                //Combining the time, 730, and 850 arrays into one, data_list
-                //The matrix is of size: data_time.size X 3
-                //First column is time, second is 730, and third is 850
-                //combineArrays();
-
-                //String filename = editText_fileName.getText().toString();
-
-                //String saved_data = Arrays.toString(data_list[][0]);
             }
         });
-    }
-
-
-
-
-    //Method for saving the text file of data
-    private void saveTextAsFile(String filename, String content) {
-        String fileName = filename + ".txt";
-
-        //Create File
-        File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
-
-        //Write to File
-        try {
-            FileOutputStream fos = new FileOutputStream(file);
-            fos.write(content.getBytes());
-            fos.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "File not Found!", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Error Saving!", Toast.LENGTH_SHORT).show();
-        }
     }
 
 
@@ -224,6 +186,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         //Determining what buttons should be available when connected to a device
         if (mConnected) {
+
             menu.findItem(R.id.menu_connect).setVisible(false);
             //menu.findItem(R.id.menu_disconnect).setVisible(true);
 
@@ -252,12 +215,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //While the app is not graphing
             else if(!graphing)
                 menu.findItem(R.id.stopData).setVisible(false);
-
-            //Set clear graph to only be shown when the graph has data
-            if(filledGraph)
-                menu.findItem(R.id.clearGraph).setVisible(true);
-            else if(!filledGraph)
-                menu.findItem(R.id.clearGraph).setVisible(false);
         }
 
         //When disconnected, the only button should be to connect and go home
@@ -283,34 +240,28 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             //Connect to device
             case R.id.menu_connect:
-                if (!mConnected) {
-                    Log.d(TAG, "Menu item connect: trying to connect");
-                    mBluetoothLeService.connect(mDeviceAddress);
-                }
-                return true;
 
-            //Begins collection and graphing of raw data
-            case R.id.startData:
+                Log.d(TAG, "Menu item connect: trying to connect");
+                mBluetoothLeService.connect(mDeviceAddress);
 
-                if(!graphing && mConnected) {
-                    button_saveData.setVisibility(View.INVISIBLE);
-                    graphingRaw = true;
-                    Log.d(TAG, "Menu item startData: trying to startData");
-                    initializeSeries();
-                    mTimer.schedule(mGetDataClass, 0, samplingRate);
-                    invalidateOptionsMenu();
-                }
                 return true;
 
             case R.id.dataAnalysis:
 
-                if(!graphing && mConnected) {
-                    button_saveData.setVisibility(View.INVISIBLE);
-                    graphingRaw = false;
-                    Log.d(TAG, "Menu item startData: trying to startData");
-                    createBeginBaselineDialog();
-                    invalidateOptionsMenu();
-                }
+                /*button_saveData.setVisibility(View.INVISIBLE);
+                graphingRaw = false;
+                Log.d(TAG, "Menu item startData: trying to startData");
+                createBeginBaselineDialog();
+                invalidateOptionsMenu();*/
+
+                button_saveData.setVisibility(View.INVISIBLE);
+                graphingRaw = true;
+                Log.d(TAG, "Menu item startData: trying to startData");
+                initializeSeries();
+                mTimer.schedule(mGetDataClass, 0, samplingRate);
+                invalidateOptionsMenu();
+
+
                 return true;
 
             //Continues graphing from a stopped graph
@@ -324,28 +275,19 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             //Stops collection of data, but keeps graph intact
             case R.id.stopData:
-                if(graphing && mConnected) {
-                    button_saveData.setVisibility(View.VISIBLE);
-                    Log.d(TAG, "Menu item stopData: trying to stopData");
-                    stopDataCollection();
-                }
-                return true;
 
-            //Stops collection of data and clears the graph
-            case R.id.clearGraph:
-                if(mConnected && filledGraph) {
-                    button_saveData.setVisibility(View.INVISIBLE);
-                    Log.d(TAG, "Menu item clearGraph: trying to clearGraph");
-                    clearGraph();
-                }
+                button_saveData.setVisibility(View.VISIBLE);
+                Log.d(TAG, "Menu item stopData: trying to stopData");
+                stopDataCollection();
+
                 return true;
 
             //Return home
             case R.id.returnTo:
                 Log.d(TAG, "Returning home");
-                clearGraph();
                 Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
                 startActivity(i);
+                finish();
                 return true;
         }
 
@@ -565,7 +507,9 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             Log.d(TAG, "Graphing...");
             DataPoint dataPoint = new DataPoint(time, value);
-            series.appendData(dataPoint, true,10000);
+            series.appendData(dataPoint, true,1000);
+            dataGraph.getViewport().setMinX(0);
+            dataGraph.getViewport().setMaxX(time);
         }
 
 
@@ -578,17 +522,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Updating the UI to display the 730 and 850 voltage readings
             dataField_730.setText(String.valueOf(data_730_d));
             dataField_850.setText(String.valueOf(data_850_d));
-
-            //Changing the axis every 10 seconds
-            if((int)time == end){
-                start = start + 10;
-                end = end + 10;
-            }
-
-            if ((int)time < end) {
-                dataGraph.getViewport().setMinX(start);
-                dataGraph.getViewport().setMaxX(end+1);
-            }
         }
     }
 
@@ -621,6 +554,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //TODO: only save if name is entered into edit text
 
     // Handles various events regarding the bluetooth device
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
@@ -645,20 +579,15 @@ public class DeviceControlActivity extends AppCompatActivity {
                 invalidateOptionsMenu();
 
                 //If services are discovered, show all the supported services and characteristics on the user interface.
-            } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+            /*} else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 Log.d(TAG, "Services discovered");
-                servicesAvailable = true;
-                //Settings notifications to determine when the data has changed
-                mBluetoothLeService.setCharacteristicNotification();
-                //mBluetoothLeService.setDescriptor();
-                invalidateOptionsMenu();
 
                 //If data is available
             } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
                 String data = intent.getStringExtra(BluetoothLeService.EXTRA_DATA);
                 Log.d(TAG, "DATA: " + data);
                 //The bluetooth service must not be null or without a try catch the app will crash
-                /*try {
+                try {
                     data = mBluetoothLeService.readVoltages();
                     Log.d(TAG, "Reading data:      " + data);
                 }
@@ -669,8 +598,6 @@ public class DeviceControlActivity extends AppCompatActivity {
                 String data_730_2 = data.substring(3, 5);
                 String data_730s = new StringBuilder().append(data_730_1).append(data_730_2).toString();
                 dataField_730.setText(data_730s);*/
-
-
             }
         }
     };
@@ -692,24 +619,11 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    // first stops data collection and then clears the graph
-    public void clearGraph(){
-        filledGraph = false;
-        stopDataCollection();
-        dataField_730.setText("...");
-        dataField_850.setText("...");
-        timeField.setText("...");
-        Log.d(TAG, "Graph cleared");
-        //Old series must be removed from the graph
-        dataGraph.removeAllSeries();
-    }
-
-
-
-
     //Initializing the series, timer, and getData class
     //A series is just a collection of numbers to be plotted on a graph
     public void initializeSeries(){
+
+        filledGraph = true;
 
         //Resetting the time for incoming data
         count = 0;
@@ -747,6 +661,30 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         mTimer = new Timer();
         mGetDataClass = new getDataClass();
+    }
+
+
+
+
+    //Method for saving the text file of data
+    private void saveTextAsFile(String filename, String content) {
+        String fileName = filename + ".txt";
+
+        //Create File
+        File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
+
+        //Write to File
+        try {
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(content.getBytes());
+            fos.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "File not Found!", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error Saving!", Toast.LENGTH_SHORT).show();
+        }
     }
 
 
@@ -899,25 +837,32 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Alert dialog for entering name for text file to be saved as
     private void createTextFile(){
 
+        //Converting the 2 data arrays and time array into one String array
         String saved_data1 = data_730.toString();
         String saved_data2 = data_time.toString();
         String saved_data3 = data_850.toString();
-        final String saved_data = new String(saved_data1 + "-----------------------------" + saved_data2 +
-                "----------------------------------" + saved_data3);
+        final String saved_data = new String().concat(saved_data1 + "\n-----------------------------\n" + saved_data2 +
+                "\n-----------------------------\n" + saved_data3);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
-
 
         // Inflate and set the layout for the dialog
         // Pass null as the parent view because its going in the dialog layout
         View v = LayoutInflater.from(this).inflate(R.layout.save_file_dialog, null, false);
         builder.setView(v);
+
+        builder.setCancelable(false);
+        final AlertDialog dialog = builder.create();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
         //This edit text is allows the user to enter a file name
         final EditText input = v.findViewById(R.id.username);
+        final Button saveButton = v.findViewById(R.id.save);
+        final Button cancelButton = v.findViewById(R.id.cancel);
 
-        builder.setPositiveButton("Save", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int id) {
-
+        //On click, the button will save the data with the name entered, as long as a name is entered
+        saveButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
                 fileName = input.getText().toString();
 
                 if (fileName != null) {
@@ -931,39 +876,15 @@ public class DeviceControlActivity extends AppCompatActivity {
             }
         });
 
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int id) {
-
+        //On click, the button will cancel the dialog and return to DeviceControlActivity
+        cancelButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                dialog.dismiss();
             }
         });
 
-        builder.setCancelable(false);
-        AlertDialog dialog = builder.create();
-
         dialog.show();
-
-        //Change the button's text color
-        Button positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-        Button negativeButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-        positiveButton.setTextColor(Color.BLUE);
-        negativeButton.setTextColor(Color.BLUE);
-    }
-
-
-
-
-    //Combining the time, 730, and 850 array list into one matrix
-    public void combineArrays(){
-        data_list = new String[data_time.size()][3];
-        for(int i = 0; i < data_time.size(); ++i){
-            data_list[i][0] = data_time.get(i).toString();
-        }
-        for(int i = 0; i < data_730.size(); ++i){
-            data_list[i][0] = data_730.get(i).toString();
-        }
-        for(int i = 0; i < data_850.size(); ++i){
-            data_list[i][0] = data_850.get(i).toString();
-        }
+        dialog.getWindow().setLayout(1100, 500);
     }
 
 
@@ -987,25 +908,9 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //TODO: is this necesary?
-    @Override
-    protected void onResume() {
-        super.onResume();
-        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
-        if (mBluetoothLeService != null) {
-            //initialize();
-            //final boolean result = mBluetoothLeService.connect(mDeviceAddress);
-            //Log.d(TAG, "Connect request result=" + result);
-        }
-    }
-
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(mConnected && filledGraph) {
-            clearGraph();
-        }
         Log.d(TAG, "ON DESTROY CALLED");
         unregisterReceiver(mGattUpdateReceiver);
         unbindService(mServiceConnection);
@@ -1031,25 +936,4 @@ public class DeviceControlActivity extends AppCompatActivity {
         Log.d(TAG, "ON BACK PRESSED CALLED");
         finish();
     }
-
-
-    /*
-    //Re-initializes everything when on resume is called
-    private void initialize(){
-
-        initializeSeries();
-
-        mTimer = new Timer();
-
-        //Getting device name and address from intent
-        final Intent intent = getIntent();
-        mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
-        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
-        Log.d(TAG, "Name: " + mDeviceName + "   Address: " + mDeviceAddress);
-
-        //Connecting to BLE services class
-        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
-        Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
-        bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
-    }*/
 }

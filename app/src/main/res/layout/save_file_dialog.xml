@@ -1,30 +1,57 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="200dp"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:background="@drawable/layout_rounded">
 
     <TextView
         android:id="@+id/textViewD"
-        android:layout_width="match_parent"
+        android:layout_width="275dp"
         android:layout_height="wrap_content"
-        android:background="@android:color/darker_gray"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:background="#ffffff"
         android:gravity="center_horizontal"
-        android:text="Save File As"
+        android:text="File Name: "
         android:textColor="@android:color/black"
-        android:textSize="24sp" />
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
     <EditText
         android:id="@+id/username"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
-        android:layout_marginLeft="4dp"
-        android:layout_marginRight="4dp"
-        android:layout_marginTop="0dp"
+        android:layout_width="275dp"
+        android:layout_height="50dp"
+        android:layout_alignParentStart="true"
+        android:layout_below="@+id/textViewD"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="5dp"
         android:background="@android:color/transparent"
         android:gravity="center_horizontal"
-        android:hint="File Name"
-        android:inputType="textEmailAddress"
+        android:hint=""
         android:textColor="@android:color/black"
         android:textColorLink="@color/white" />
-</LinearLayout>
+
+    <Button
+        android:id="@+id/cancel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_below="@+id/username"
+        android:layout_marginTop="75dp"
+        android:background="@android:color/transparent"
+        android:text="@android:string/cancel"
+        android:textColor="@color/colorAccent" />
+
+    <Button
+        android:id="@+id/save"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignEnd="@+id/textViewD"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="75dp"
+        android:background="@android:color/transparent"
+        android:text="Save"
+        android:textColor="@color/colorAccent" />
+
+</RelativeLayout>
+
