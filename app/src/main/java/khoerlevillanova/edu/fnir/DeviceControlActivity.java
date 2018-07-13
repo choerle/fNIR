@@ -115,7 +115,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
     //Variables for saving data
     Button button_saveData;
-    private String fileName = null;
+    private saveData mSaveData;
 
 
 
@@ -171,7 +171,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         button_saveData.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                createTextFile();
+                mSaveData = new saveData();
             }
         });
     }
@@ -179,6 +179,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //TODO: is this slow?
     //Options menu for interacting with selected BLE device
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -186,46 +187,18 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         //Determining what buttons should be available when connected to a device
         if (mConnected) {
-
             menu.findItem(R.id.menu_connect).setVisible(false);
-            //menu.findItem(R.id.menu_disconnect).setVisible(true);
-
-            //If the graph is empty, both data collecting options should be available
-            if(!graphing && !filledGraph){
-                menu.findItem(R.id.startData).setVisible(true);
-                menu.findItem(R.id.dataAnalysis).setVisible(true);
-            }
-
-            //If the graph is filled but stopped
-            if(!graphing && filledGraph){
-                menu.findItem(R.id.continueGraph).setVisible(true);
-                menu.findItem(R.id.startData).setVisible(false);
-                menu.findItem(R.id.dataAnalysis).setVisible(false);
-            }
-            else
-                menu.findItem(R.id.continueGraph).setVisible(false);
-
-            //While the app is graphing
-            if (graphing) {
-                menu.findItem(R.id.stopData).setVisible(true);
-                menu.findItem(R.id.startData).setVisible(false);
-                menu.findItem(R.id.dataAnalysis).setVisible(false);
-            }
-
-            //While the app is not graphing
-            else if(!graphing)
-                menu.findItem(R.id.stopData).setVisible(false);
+            menu.findItem(R.id.continueGraph).setVisible(true);
+            menu.findItem(R.id.dataAnalysis).setVisible(true);
+            menu.findItem(R.id.stopData).setVisible(true);
         }
 
         //When disconnected, the only button should be to connect and go home
         else if(!mConnected){
             menu.findItem(R.id.menu_connect).setVisible(true);
-            //menu.findItem(R.id.menu_disconnect).setVisible(false);
-            menu.findItem(R.id.startData).setVisible(false);
             menu.findItem(R.id.continueGraph).setVisible(false);
             menu.findItem(R.id.dataAnalysis).setVisible(false);
             menu.findItem(R.id.stopData).setVisible(false);
-            menu.findItem(R.id.clearGraph).setVisible(false);
         }
         return true;
     }
@@ -254,40 +227,64 @@ public class DeviceControlActivity extends AppCompatActivity {
                 createBeginBaselineDialog();
                 invalidateOptionsMenu();*/
 
-                button_saveData.setVisibility(View.INVISIBLE);
-                graphingRaw = true;
-                Log.d(TAG, "Menu item startData: trying to startData");
-                initializeSeries();
-                mTimer.schedule(mGetDataClass, 0, samplingRate);
-                invalidateOptionsMenu();
+                if(!graphing) {
+                    button_saveData.setVisibility(View.INVISIBLE);
+                    graphingRaw = true;
+                    Log.d(TAG, "Menu item startData: trying to startData");
+                    initializeSeries();
+                    mTimer.schedule(mGetDataClass, 0, samplingRate);
+                }
 
+                else
+                    Toast.makeText(DeviceControlActivity.this,
+                            "Please stop graphing before attempting another action", Toast.LENGTH_LONG).show();
 
                 return true;
 
             //Continues graphing from a stopped graph
             case R.id.continueGraph:
 
-                mGetDataClass = new getDataClass(true);
-                button_saveData.setVisibility(View.INVISIBLE);
-                mTimer = new Timer();
-                mTimer.schedule(mGetDataClass, 0, samplingRate);
+                if(!graphing) {
+                    mGetDataClass = new getDataClass(true);
+                    button_saveData.setVisibility(View.INVISIBLE);
+                    mTimer = new Timer();
+                    mTimer.schedule(mGetDataClass, 0, samplingRate);
+                }
+
+                else
+                    Toast.makeText(DeviceControlActivity.this,
+                            "Please stop graphing before attempting another action", Toast.LENGTH_LONG).show();
+
                 return true;
 
             //Stops collection of data, but keeps graph intact
             case R.id.stopData:
 
-                button_saveData.setVisibility(View.VISIBLE);
-                Log.d(TAG, "Menu item stopData: trying to stopData");
-                stopDataCollection();
+                if(graphing) {
+                    button_saveData.setVisibility(View.VISIBLE);
+                    Log.d(TAG, "Menu item stopData: trying to stopData");
+                    stopDataCollection();
+                }
+
+                else
+                    Toast.makeText(DeviceControlActivity.this, "Graph is already paused",
+                            Toast.LENGTH_LONG).show();
 
                 return true;
 
             //Return home
             case R.id.returnTo:
-                Log.d(TAG, "Returning home");
-                Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
-                startActivity(i);
-                finish();
+
+                if(!graphing) {
+                    Log.d(TAG, "Returning home");
+                    Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
+                    startActivity(i);
+                    finish();
+                }
+
+                else
+                    Toast.makeText(DeviceControlActivity.this,
+                            "Please stop graphing before attempting another action", Toast.LENGTH_LONG).show();
                 return true;
         }
 
@@ -347,7 +344,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             filledGraph = true;
             graphing = true;
-            invalidateOptionsMenu();
         }
 
 
@@ -528,6 +524,102 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //Class for saving text file
+    public class saveData {
+
+
+        String saved_data;
+        String string_730;
+        String string_850;
+        String string_time;
+        String fileName;
+
+
+        //Constructor that creates one string to be saved from three smaller strings
+        public saveData(){
+            string_730 = data_730.toString();
+            string_850 = data_850.toString();
+            string_time = data_time.toString();
+            fileName = null;
+            saved_data = string_730;
+            saved_data.concat("\n---------\n" + string_850 + "\n---------\n" + string_time);
+            createTextFile();
+        }
+
+
+        //Alert dialog for entering name for text file to be saved as
+        private void createTextFile(){
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+            // Inflate and set the layout for the dialog
+            // Pass null as the parent view because its going in the dialog layout
+            View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.save_file_dialog, null, false);
+            builder.setView(v);
+
+            builder.setCancelable(false);
+            final AlertDialog dialog = builder.create();
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+            //This edit text is allows the user to enter a file name
+            final EditText input = v.findViewById(R.id.username);
+            final Button saveButton = v.findViewById(R.id.save);
+            final Button cancelButton = v.findViewById(R.id.cancel);
+
+            //On click, the button will save the data with the name entered, as long as a name is entered
+            saveButton.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    fileName = input.getText().toString();
+
+                    if (fileName != null && !fileName.equals("")) {
+                        saveTextAsFile(fileName, saved_data);
+                        Toast.makeText(DeviceControlActivity.this, fileName + " Saved.", Toast.LENGTH_LONG).show();
+                        dialog.dismiss();
+                    }
+
+                    else {
+                        Toast.makeText(DeviceControlActivity.this, "Could not save file. Please enter a valid name.", Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+
+            //On click, the button will cancel the dialog and return to DeviceControlActivity
+            cancelButton.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    dialog.dismiss();
+                }
+            });
+
+            dialog.show();
+            dialog.getWindow().setLayout(1100, 500);
+        }
+
+
+        //Method for saving the text file of data
+        private void saveTextAsFile(String filename, String content) {
+            String fileName = filename + ".txt";
+
+            //Create File
+            File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
+
+            //Write to File
+            try {
+                FileOutputStream fos = new FileOutputStream(file);
+                fos.write(content.getBytes());
+                fos.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                Toast.makeText(DeviceControlActivity.this, "File not Found!", Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                e.printStackTrace();
+                Toast.makeText(DeviceControlActivity.this, "Error Saving!", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+
+
+
     // Code to manage Service lifecycle, connects to BLE when activity is first started
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -609,7 +701,6 @@ public class DeviceControlActivity extends AppCompatActivity {
     public void stopDataCollection(){
         graphing = false;
         Log.d(TAG, "Graph stopped");
-        invalidateOptionsMenu();
         if(mTimer!= null) {
             mTimer.cancel();
             mTimer.purge();
@@ -666,30 +757,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //Method for saving the text file of data
-    private void saveTextAsFile(String filename, String content) {
-        String fileName = filename + ".txt";
-
-        //Create File
-        File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
-
-        //Write to File
-        try {
-            FileOutputStream fos = new FileOutputStream(file);
-            fos.write(content.getBytes());
-            fos.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "File not Found!", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Error Saving!", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-
-
-
     //Converts hex string to decimal
     public static int getDecimal(String hex){
 
@@ -719,6 +786,24 @@ public class DeviceControlActivity extends AppCompatActivity {
         intentFilter.addAction(BluetoothLeService.ACTION_DATA_AVAILABLE);
 
         return intentFilter;
+    }
+
+
+
+
+    //Request permissions for save data
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case 1000:
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Permissions Granted!", Toast.LENGTH_SHORT).show();
+                }
+                else {
+                    Toast.makeText(this, "Permission not Granted!", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+        }
     }
 
 
@@ -829,80 +914,6 @@ public class DeviceControlActivity extends AppCompatActivity {
         builder.setCancelable(false);
         AlertDialog dialog = builder.create();
         dialog.show();
-    }
-
-
-
-
-    //Alert dialog for entering name for text file to be saved as
-    private void createTextFile(){
-
-        //Converting the 2 data arrays and time array into one String array
-        String saved_data1 = data_730.toString();
-        String saved_data2 = data_time.toString();
-        String saved_data3 = data_850.toString();
-        final String saved_data = new String().concat(saved_data1 + "\n-----------------------------\n" + saved_data2 +
-                "\n-----------------------------\n" + saved_data3);
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
-
-        // Inflate and set the layout for the dialog
-        // Pass null as the parent view because its going in the dialog layout
-        View v = LayoutInflater.from(this).inflate(R.layout.save_file_dialog, null, false);
-        builder.setView(v);
-
-        builder.setCancelable(false);
-        final AlertDialog dialog = builder.create();
-        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-        //This edit text is allows the user to enter a file name
-        final EditText input = v.findViewById(R.id.username);
-        final Button saveButton = v.findViewById(R.id.save);
-        final Button cancelButton = v.findViewById(R.id.cancel);
-
-        //On click, the button will save the data with the name entered, as long as a name is entered
-        saveButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                fileName = input.getText().toString();
-
-                if (fileName != null) {
-                    saveTextAsFile(fileName, saved_data);
-                    Toast.makeText(DeviceControlActivity.this, fileName + " saved", Toast.LENGTH_LONG).show();
-                }
-
-                else {
-                    Toast.makeText(DeviceControlActivity.this, "Could not save file", Toast.LENGTH_LONG).show();
-                }
-            }
-        });
-
-        //On click, the button will cancel the dialog and return to DeviceControlActivity
-        cancelButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                dialog.dismiss();
-            }
-        });
-
-        dialog.show();
-        dialog.getWindow().setLayout(1100, 500);
-    }
-
-
-
-
-    //Request permissions for save data
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case 1000:
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "Permissions Granted!", Toast.LENGTH_SHORT).show();
-                }
-                else {
-                    Toast.makeText(this, "Permission not Granted!", Toast.LENGTH_SHORT).show();
-                    finish();
-                }
-        }
     }
 
 
