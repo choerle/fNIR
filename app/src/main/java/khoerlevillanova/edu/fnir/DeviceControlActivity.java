@@ -48,6 +48,8 @@ import android.widget.TableLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.GridLabelRenderer;
+import com.jjoe64.graphview.LegendRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
@@ -95,7 +97,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private boolean graphingRaw;
     private int count = 0;
     private double time = 0;
-    private int samplingRate = 250; //In milliseconds
+    private int samplingRate = 100; //In milliseconds
     private LineGraphSeries<DataPoint> series_HB;
     private LineGraphSeries<DataPoint> series_HBO2;
     private LineGraphSeries<DataPoint> series_730;
@@ -116,6 +118,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Variables for saving data
     Button button_saveData;
     private saveData mSaveData;
+
 
 
 
@@ -140,9 +143,10 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
+        initializeSeries();
         dataGraph.getViewport().setYAxisBoundsManual(true);
-        dataGraph.getViewport().setMinY(-100);
-        dataGraph.getViewport().setMaxY(100);
+        dataGraph.getViewport().setMinY(-50);
+        dataGraph.getViewport().setMaxY(50);
         dataGraph.getViewport().setXAxisBoundsManual(true);
         dataGraph.setTitleTextSize(110);
         dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(60);
@@ -153,9 +157,18 @@ public class DeviceControlActivity extends AppCompatActivity {
         dataGraph.getGridLabelRenderer().setHorizontalLabelsColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setVerticalLabelsColor(Color.WHITE);
         dataGraph.setTitleColor(Color.WHITE);
-        dataGraph.setTitle("Raw fNIR Data");
-        dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Intensity (Voltage)");
+        dataGraph.setTitle("Oxygen Concentration");
+        dataGraph.getGridLabelRenderer().setPadding(50);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time");
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Concentration");
+        dataGraph.getGridLabelRenderer().setHighlightZeroLines(true);
+        dataGraph.getLegendRenderer().setVisible(true);
+        dataGraph.getLegendRenderer().setBackgroundColor(Color.TRANSPARENT);
+        dataGraph.getLegendRenderer().setTextColor(Color.WHITE);
+        dataGraph.getLegendRenderer().setTextSize(60);
+        dataGraph.getLegendRenderer().setMargin(30);
+        dataGraph.getLegendRenderer().setSpacing(50);
+        dataGraph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.BOTTOM);
 
         //Getting device name and address from intent
         final Intent intent = getIntent();
@@ -179,7 +192,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //TODO: is this slow?
     //Options menu for interacting with selected BLE device
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -187,10 +199,32 @@ public class DeviceControlActivity extends AppCompatActivity {
 
         //Determining what buttons should be available when connected to a device
         if (mConnected) {
+
             menu.findItem(R.id.menu_connect).setVisible(false);
-            menu.findItem(R.id.continueGraph).setVisible(true);
-            menu.findItem(R.id.dataAnalysis).setVisible(true);
-            menu.findItem(R.id.stopData).setVisible(true);
+
+            //If the graph is empty
+            if(!graphing && !filledGraph){
+                menu.findItem(R.id.dataAnalysis).setVisible(true);
+                menu.findItem(R.id.stopData).setVisible(false);
+                menu.findItem(R.id.continueGraph).setVisible(false);
+                menu.findItem(R.id.saveData).setVisible(false);
+            }
+
+            //If currently graphing
+            else if(graphing){
+                menu.findItem(R.id.dataAnalysis).setVisible(false);
+                menu.findItem(R.id.stopData).setVisible(true);
+                menu.findItem(R.id.continueGraph).setVisible(false);
+                menu.findItem(R.id.saveData).setVisible(true);
+            }
+
+            //If the graph is filled but stopped
+            else if(!graphing && filledGraph){
+                menu.findItem(R.id.dataAnalysis).setVisible(true);
+                menu.findItem(R.id.stopData).setVisible(false);
+                menu.findItem(R.id.continueGraph).setVisible(true);
+                menu.findItem(R.id.saveData).setVisible(true);
+            }
         }
 
         //When disconnected, the only button should be to connect and go home
@@ -199,6 +233,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             menu.findItem(R.id.continueGraph).setVisible(false);
             menu.findItem(R.id.dataAnalysis).setVisible(false);
             menu.findItem(R.id.stopData).setVisible(false);
+            menu.findItem(R.id.saveData).setVisible(false);
         }
         return true;
     }
@@ -214,6 +249,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Connect to device
             case R.id.menu_connect:
 
+                button_saveData.setVisibility(View.INVISIBLE);
                 Log.d(TAG, "Menu item connect: trying to connect");
                 mBluetoothLeService.connect(mDeviceAddress);
 
@@ -221,70 +257,56 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             case R.id.dataAnalysis:
 
-                /*button_saveData.setVisibility(View.INVISIBLE);
-                graphingRaw = false;
+                button_saveData.setVisibility(View.INVISIBLE);
                 Log.d(TAG, "Menu item startData: trying to startData");
                 createBeginBaselineDialog();
+
+                /*button_saveData.setVisibility(View.INVISIBLE);
+                graphingRaw = true;
+                Log.d(TAG, "Menu item startData: trying to startData");
+                initializeSeries();
+                mTimer.schedule(mGetDataClass, 0, samplingRate);
                 invalidateOptionsMenu();*/
-
-                if(!graphing) {
-                    button_saveData.setVisibility(View.INVISIBLE);
-                    graphingRaw = true;
-                    Log.d(TAG, "Menu item startData: trying to startData");
-                    initializeSeries();
-                    mTimer.schedule(mGetDataClass, 0, samplingRate);
-                }
-
-                else
-                    Toast.makeText(DeviceControlActivity.this,
-                            "Please stop graphing before attempting another action", Toast.LENGTH_LONG).show();
 
                 return true;
 
             //Continues graphing from a stopped graph
             case R.id.continueGraph:
 
-                if(!graphing) {
-                    mGetDataClass = new getDataClass(true);
-                    button_saveData.setVisibility(View.INVISIBLE);
-                    mTimer = new Timer();
-                    mTimer.schedule(mGetDataClass, 0, samplingRate);
-                }
-
-                else
-                    Toast.makeText(DeviceControlActivity.this,
-                            "Please stop graphing before attempting another action", Toast.LENGTH_LONG).show();
+                button_saveData.setVisibility(View.INVISIBLE);
+                Log.d(TAG, "Menu item continueGraph: trying to continueGraph");
+                mGetDataClass = new getDataClass(true);
+                mTimer = new Timer();
+                mTimer.schedule(mGetDataClass, 0, samplingRate);
 
                 return true;
 
             //Stops collection of data, but keeps graph intact
             case R.id.stopData:
 
-                if(graphing) {
-                    button_saveData.setVisibility(View.VISIBLE);
-                    Log.d(TAG, "Menu item stopData: trying to stopData");
-                    stopDataCollection();
-                }
+                button_saveData.setVisibility(View.INVISIBLE);
+                Log.d(TAG, "Menu item stopData: trying to stopData");
+                stopDataCollection();
 
-                else
-                    Toast.makeText(DeviceControlActivity.this, "Graph is already paused",
-                            Toast.LENGTH_LONG).show();
+                return true;
+
+            //Save the current data displayed in the graph
+            case R.id.saveData:
+
+                Log.d(TAG, "Menu item saveData: trying to saveData");
+                stopDataCollection();
+                mSaveData = new saveData();
 
                 return true;
 
             //Return home
             case R.id.returnTo:
 
-                if(!graphing) {
-                    Log.d(TAG, "Returning home");
-                    Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
-                    startActivity(i);
-                    finish();
-                }
+                Log.d(TAG, "Returning home");
+                Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
+                startActivity(i);
+                finish();
 
-                else
-                    Toast.makeText(DeviceControlActivity.this,
-                            "Please stop graphing before attempting another action", Toast.LENGTH_LONG).show();
                 return true;
         }
 
@@ -294,10 +316,41 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //Initializes and displays a dialog that asks the user if they want to start a baseline test
+    //If the user clicks yes a baseline is taken, which takes about 5 seconds, then the graph begins
+    private void createBeginBaselineDialog(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+        builder.setPositiveButton("Begin", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                graphingRaw = false;        //If a baseline is taken, the data is not raw
+                initializeSeries();
+                mTimer = new Timer();
+                mGetDataClass = new getDataClass();
+                mTimer.schedule(mGetDataClass, 0, samplingRate);
+            }
+        });
+
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User cancelled the dialog
+            }
+        });
+
+        builder.setMessage("In order to begin data collection, a five second baseline test must be collected.")
+                .setTitle("Baseline Test Required");
+        builder.setCancelable(false);
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+
+
+
     //This is the class that recieves the data from the device and then plots it
     //If graphingRaw is true, then a raw graph of voltage readings will be created
     //If graphingRaw is false, then a 20 sample baseline test will be collected and then
-        //the data analysis will begin
+    //the data analysis will begin
     public class getDataClass extends TimerTask {
 
         //If true, the app will begin by creating a baseline and then graphing
@@ -305,45 +358,39 @@ public class DeviceControlActivity extends AppCompatActivity {
         private String data;
         private double data_730_d;
         private double data_850_d;
-        int start = 0;
-        int end = 10;
-
 
         //Constructor for continuing with a previous graph
         getDataClass(boolean continue1){
             gettingBaseline = false;
+            filledGraph = true;
+            graphing = true;
+            invalidateOptionsMenu();
         }
 
 
         //Constructor for creating a blank graph
         getDataClass(){
 
-            //Graphing raw voltages
+            createBaselineProgress();
+            gettingBaseline = true;
+
+            filledGraph = true;
+            graphing = true;
+            invalidateOptionsMenu();
+
+            /*//Graphing raw voltages
             if(graphingRaw){
                 gettingBaseline = false;
                 dataGraph.getViewport().setMinY(0);
                 dataGraph.getViewport().setMaxY(2000);
-                dataGraph.getViewport().setMinX(0);
-                dataGraph.getViewport().setMaxX(1);
-                dataGraph.setTitle("Raw fNIR Data");
-                dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
-                dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Intensity (Voltage)");
             }
 
             //Graphing oxygenation readings
             else {
-                dataGraph.getViewport().setMinY(-100);
-                dataGraph.getViewport().setMaxY(100);
-                dataGraph.setTitle("Oxygenation");
-                dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time (Seconds)");
-                dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Concentration");
                 //Initialization of progress dialog for creating baseline text
                 createBaselineProgress();
                 gettingBaseline = true;
-            }
-
-            filledGraph = true;
-            graphing = true;
+            }*/
         }
 
 
@@ -355,29 +402,25 @@ public class DeviceControlActivity extends AppCompatActivity {
                 public void run() {
 
                     //Checking to see if data is available
-                    if (mBluetoothLeService.readVoltages() != null && mBluetoothLeService != null
-                            && mBluetoothLeService.readVoltages() != null) {
+                    if (mBluetoothLeService != null) {
 
-                        //This sets the data string equal to input string
-                        getRawDataValues();
+                        if (mBluetoothLeService.readVoltages() != null) {
 
-                        //730 wavelength
-                        data_730_d = get730(data);
+                            //This sets the data string equal to input string
+                            getRawDataValues();
 
-                        //850 wavelength
-                        data_850_d = get850(data);
+                            //For graphing raw voltages
+                            if (graphingRaw) {
+                                getRawData();
+                            }
 
-                        //For graphing raw voltages
-                        if(graphingRaw){
-                            getRawData();
-                        }
-
-                        //For first creating a baseline then graphing oxygen levels
-                        else {
-                            if (gettingBaseline)
-                                getBaseline();
-                            else
-                                getData();
+                            //For first creating a baseline then graphing oxygen levels
+                            else {
+                                if (gettingBaseline)
+                                    getBaseline();
+                                else
+                                    getData();
+                            }
                         }
                     }
                 }
@@ -388,14 +431,24 @@ public class DeviceControlActivity extends AppCompatActivity {
         //Getting the raw string from BLE device
         public void getRawDataValues(){
 
-            //The bluetooth service must not be null or without a try catch the app will crash
-            try {
+            //The bluetooth service must not be null, or without a try catch the app will crash
+            //try {
                 data = mBluetoothLeService.readVoltages();
                 Log.d(TAG, "Reading data:      " + data);
-            }
+
+                //730 wavelength
+                data_730_d = get730(data);
+
+                //850 wavelength
+                data_850_d = get850(data);
+            /*}
+
             catch(NullPointerException e){
                 Log.d(TAG, "NULL POINTER");
-            }
+                Toast.makeText(DeviceControlActivity.this, "Could not read data. Please try again.",
+                        Toast.LENGTH_LONG).show();
+                stopDataCollection();
+            }*/
         }
 
 
@@ -497,7 +550,6 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
 
 
-        //TODO: is this way of graphing slow?
         //Graphs data by adding to old series and plotting it
         public void graphData(Double value,  LineGraphSeries<DataPoint> series){
 
@@ -541,8 +593,10 @@ public class DeviceControlActivity extends AppCompatActivity {
             string_850 = data_850.toString();
             string_time = data_time.toString();
             fileName = null;
-            saved_data = string_730;
-            saved_data.concat("\n---------\n" + string_850 + "\n---------\n" + string_time);
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append(data_730 + "\n-----------------------\n" + string_850 +
+                    "\n-----------------------\n" + string_time);
+            saved_data = stringBuilder.toString();
             createTextFile();
         }
 
@@ -656,7 +710,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             final String action = intent.getAction();
 
-                //If connected to GATT
+            //If connected to GATT
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
                 Log.d(TAG, "Connected to BLE");
@@ -705,6 +759,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             mTimer.cancel();
             mTimer.purge();
         }
+        invalidateOptionsMenu();
     }
 
 
@@ -713,8 +768,6 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Initializing the series, timer, and getData class
     //A series is just a collection of numbers to be plotted on a graph
     public void initializeSeries(){
-
-        filledGraph = true;
 
         //Resetting the time for incoming data
         count = 0;
@@ -734,13 +787,15 @@ public class DeviceControlActivity extends AppCompatActivity {
         series_HB = new LineGraphSeries<>();
         series_HB.setColor(Color.BLUE);
         dataGraph.addSeries(series_HB);
+        series_HB.setTitle("Oxygenated");
 
         //Oxygenated hemoglobin series initialization
         series_HBO2 = new LineGraphSeries<>();
         series_HBO2.setColor(Color.RED);
         dataGraph.addSeries(series_HBO2);
+        series_HBO2.setTitle("Deoxygenated");
 
-        //730nm wavelength series initialization
+        /*//730nm wavelength series initialization
         series_730 = new LineGraphSeries<>();
         series_730.setColor(Color.BLUE);
         dataGraph.addSeries(series_730);
@@ -748,10 +803,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         //850nm wavelength series initialization
         series_850 = new LineGraphSeries<>();
         series_850.setColor(Color.RED);
-        dataGraph.addSeries(series_850);
-
-        mTimer = new Timer();
-        mGetDataClass = new getDataClass();
+        dataGraph.addSeries(series_850);*/
     }
 
 
@@ -887,33 +939,6 @@ public class DeviceControlActivity extends AppCompatActivity {
         baselineProgress.setMax(100);
         baselineProgress.setCancelable(false);
         baselineProgress.show();
-    }
-
-
-
-
-    //Initializes and displays a dialog that asks the user if they want to start a baseline test
-    private void createBeginBaselineDialog(){
-        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
-
-        builder.setPositiveButton("Begin", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int id) {
-                initializeSeries();
-                mTimer.schedule(mGetDataClass, 0, samplingRate);
-            }
-        });
-
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int id) {
-                // User cancelled the dialog
-            }
-        });
-
-        builder.setMessage("In order to begin data collection, a five second baseline test must be collected.")
-                .setTitle("Baseline Test Required");
-        builder.setCancelable(false);
-        AlertDialog dialog = builder.create();
-        dialog.show();
     }
 
 
