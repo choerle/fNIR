@@ -67,6 +67,10 @@ public class MainActivity extends AppCompatActivity  {
                 Intent i = new Intent(MainActivity.this, DeviceScanActivity.class);
                 startActivity(i);
                 break;
+            case R.id.load_data:
+                Intent j = new Intent(MainActivity.this, oldData.class);
+                startActivity(j);
+                break;
             case R.id.settings:
                 fragmentClass = Settings.class;
                 break;

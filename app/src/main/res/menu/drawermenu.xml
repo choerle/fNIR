@@ -14,6 +14,10 @@
         android:icon="@drawable/ic_data"
         android:title="Collect Data" />
     <item
+        android:id="@+id/load_data"
+        android:icon="@drawable/ic_load_data"
+        android:title="Load Data" />
+    <item
         android:id="@+id/concussions"
         android:title="Concussions"
         android:icon="@drawable/ic_concussion"/>
