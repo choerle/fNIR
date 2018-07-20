@@ -52,7 +52,6 @@ import com.jjoe64.graphview.GridLabelRenderer;
 import com.jjoe64.graphview.LegendRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -91,7 +90,8 @@ public class DeviceControlActivity extends AppCompatActivity {
     private ArrayList<Double> data_time;
     private ArrayList<Double> HB;
     private ArrayList<Double> HBO2;
-    private String[][] data_list;
+    private int sampleCount = 33;
+    private int incrementProgressBy = 3;
 
     //Graphing variables
     private boolean graphingRaw;
@@ -116,7 +116,6 @@ public class DeviceControlActivity extends AppCompatActivity {
     private boolean filledGraph = false;    //If there is data on the graph, this is true
 
     //Variables for saving data
-    Button button_saveData;
     private saveData mSaveData;
 
 
@@ -138,36 +137,34 @@ public class DeviceControlActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
         }
-        button_saveData = findViewById(R.id.button_save_data);
-        button_saveData.setVisibility(View.INVISIBLE);
 
         //Graphing initialization
         dataGraph = findViewById(R.id.dataGraph);
         initializeSeries();
         dataGraph.getViewport().setYAxisBoundsManual(true);
-        dataGraph.getViewport().setMinY(-50);
-        dataGraph.getViewport().setMaxY(50);
+        dataGraph.getViewport().setMinY(-10);
+        dataGraph.getViewport().setMaxY(20);
         dataGraph.getViewport().setXAxisBoundsManual(true);
         dataGraph.setTitleTextSize(110);
-        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(60);
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(60);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(70);
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(70);
         dataGraph.getGridLabelRenderer().setGridColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setHorizontalAxisTitleColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setVerticalAxisTitleColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setHorizontalLabelsColor(Color.WHITE);
         dataGraph.getGridLabelRenderer().setVerticalLabelsColor(Color.WHITE);
         dataGraph.setTitleColor(Color.WHITE);
-        dataGraph.setTitle("Oxygen Concentration");
+        dataGraph.setTitle("Oxygenation");
         dataGraph.getGridLabelRenderer().setPadding(50);
         dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time");
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Concentration");
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Hemodynamic Changes");
         dataGraph.getGridLabelRenderer().setHighlightZeroLines(true);
         dataGraph.getLegendRenderer().setVisible(true);
         dataGraph.getLegendRenderer().setBackgroundColor(Color.TRANSPARENT);
         dataGraph.getLegendRenderer().setTextColor(Color.WHITE);
         dataGraph.getLegendRenderer().setTextSize(60);
-        dataGraph.getLegendRenderer().setMargin(30);
-        dataGraph.getLegendRenderer().setSpacing(50);
+        dataGraph.getLegendRenderer().setMargin(20);
+        dataGraph.getLegendRenderer().setSpacing(40);
         dataGraph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.BOTTOM);
 
         //Getting device name and address from intent
@@ -180,13 +177,6 @@ public class DeviceControlActivity extends AppCompatActivity {
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
-
-        button_saveData.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mSaveData = new saveData();
-            }
-        });
     }
 
 
@@ -249,7 +239,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Connect to device
             case R.id.menu_connect:
 
-                button_saveData.setVisibility(View.INVISIBLE);
                 Log.d(TAG, "Menu item connect: trying to connect");
                 mBluetoothLeService.connect(mDeviceAddress);
 
@@ -257,7 +246,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             case R.id.dataAnalysis:
 
-                button_saveData.setVisibility(View.INVISIBLE);
                 Log.d(TAG, "Menu item startData: trying to startData");
                 createBeginBaselineDialog();
 
@@ -273,7 +261,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Continues graphing from a stopped graph
             case R.id.continueGraph:
 
-                button_saveData.setVisibility(View.INVISIBLE);
                 Log.d(TAG, "Menu item continueGraph: trying to continueGraph");
                 mGetDataClass = new getDataClass(true);
                 mTimer = new Timer();
@@ -284,7 +271,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Stops collection of data, but keeps graph intact
             case R.id.stopData:
 
-                button_saveData.setVisibility(View.INVISIBLE);
                 Log.d(TAG, "Menu item stopData: trying to stopData");
                 stopDataCollection();
 
@@ -431,24 +417,24 @@ public class DeviceControlActivity extends AppCompatActivity {
         //Getting the raw string from BLE device
         public void getRawDataValues(){
 
-            //The bluetooth service must not be null, or without a try catch the app will crash
-            //try {
-                data = mBluetoothLeService.readVoltages();
-                Log.d(TAG, "Reading data:      " + data);
+            data = mBluetoothLeService.readVoltages();
+            Log.d(TAG, "Reading data:      " + data);
 
-                //730 wavelength
-                data_730_d = get730(data);
-
-                //850 wavelength
-                data_850_d = get850(data);
-            /*}
-
-            catch(NullPointerException e){
-                Log.d(TAG, "NULL POINTER");
-                Toast.makeText(DeviceControlActivity.this, "Could not read data. Please try again.",
+            //If the data read characteristic could not be found
+            if(data.equals("ERROR")){
+                Log.d(TAG, "UUID not found on device. Ending activity");
+                Toast.makeText(DeviceControlActivity.this, "Device does not support data reading",
                         Toast.LENGTH_LONG).show();
-                stopDataCollection();
-            }*/
+                dismissBaselineProgress();
+                finish();
+                return;
+            }
+
+            //730 wavelength
+            data_730_d = get730(data);
+
+            //850 wavelength
+            data_850_d = get850(data);
         }
 
 
@@ -474,14 +460,14 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
 
 
-        //Creates a baseline using the first few data samples
+        //Creates a baseline using the first sampleCount data samples
         private void getBaseline() {
 
             //Getting the first 20 samples for a baseline
-            if (count < 20) {
+            if (count < sampleCount) {
 
                 //Incrementing the progress dialog
-                baselineProgress.incrementProgressBy(5);
+                baselineProgress.incrementProgressBy(incrementProgressBy);
 
                 //Adding new readings to the array lists
                 data_730.add(data_730_d);
@@ -491,12 +477,12 @@ public class DeviceControlActivity extends AppCompatActivity {
             }
 
 
-            //After getting 20 data samples, create the baseline array
-            else if (count == 20 && gettingBaseline) {
+            //After getting sampleCount data samples, create the baseline array
+            else if (count == sampleCount && gettingBaseline) {
 
                 baselineProgress.dismiss();
                 Log.d(TAG, "BEGINNING DATA ANALYSIS");
-                mBvoxy = new bvoxy(data_730, data_850);
+                mBvoxy = new bvoxy();
                 count = 0;
                 data_730 = new ArrayList<>();
                 data_850 = new ArrayList<>();
@@ -517,7 +503,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             data_time.add(time);
 
             //Converting the 2 voltage readings into oxygenation readings
-            mBvoxy.addHemoglobin(HB, HBO2, count, data_850_d, data_730_d);
+            mBvoxy.addHemoglobin();
 
             //Adding the HB and HBO2 points to the graph
             graphData(HB.get(count), series_HB);
@@ -555,7 +541,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
             Log.d(TAG, "Graphing...");
             DataPoint dataPoint = new DataPoint(time, value);
-            series.appendData(dataPoint, true,1000);
+            series.appendData(dataPoint, true,10000);
             dataGraph.getViewport().setMinX(0);
             dataGraph.getViewport().setMaxX(time);
         }
@@ -632,7 +618,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                     }
 
                     else {
-                        Toast.makeText(DeviceControlActivity.this, "Could not save file. Please enter a valid name.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(DeviceControlActivity.this, "Please enter a valid name", Toast.LENGTH_LONG).show();
                     }
                 }
             });
@@ -700,7 +686,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //TODO: only save if name is entered into edit text
 
     // Handles various events regarding the bluetooth device
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
@@ -871,10 +856,6 @@ public class DeviceControlActivity extends AppCompatActivity {
         private final double eHBO2_850 = 1.058;
         private final double L = 0.015;
 
-        //Full arrays that are initialized to input readings
-        private ArrayList<Double> w730;
-        private ArrayList<Double> w850;
-
         //Baseline values
         private Double baseline_730;
         private Double baseline_850;
@@ -884,10 +865,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         private ArrayList<Double> OD_850;
 
 
-        bvoxy(ArrayList<Double> temp730, ArrayList<Double> temp850) {
-
-            w730 = temp730;
-            w850 = temp850;
+        bvoxy() {
 
             OD_730 = new ArrayList<>();
             OD_850 = new ArrayList<>();
@@ -899,33 +877,30 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
 
 
-        //Creating the baseline arrays from first X data samples
+        //Creating the baseline arrays from first sampleCount samples
         private void getBaseLine() {
 
             Double sum730 = 0.0;
             Double sum850 = 0.0;
 
-            for (int i = 0; i < w730.size(); ++i) {
-                sum730 += w730.get(i);
-                sum850 += w850.get(i);
+            for (int i = 0; i < sampleCount; ++i) {
+                sum730 += data_730.get(i);
+                sum850 += data_850.get(i);
             }
 
-            baseline_730 = sum730 / 10;
-            baseline_850 = sum850 / 10;
+            baseline_730 = sum730 / sampleCount;
+            baseline_850 = sum850 / sampleCount;
         }
 
 
         //Getting the oxygenated hemoglobin levels from voltages and adding to the given arraylist
-        public void addHemoglobin(ArrayList<Double> HB, ArrayList<Double> HBO2, int i, Double reading_850, Double reading_730) {
+        public void addHemoglobin() {
 
-            w850.add(reading_850);
-            w730.add(reading_730);
+            OD_730.add(-Math.log10(data_730.get(count) / baseline_730));
+            OD_850.add(-Math.log10(data_850.get(count) / baseline_850));
 
-            OD_730.add(-Math.log10(w730.get(i) / baseline_730));
-            OD_850.add(-Math.log10(w850.get(i) / baseline_850));
-
-            HB.add(((OD_850.get(i) * eHBO2_730) - (OD_730.get(i) * eHBO2_850)) / ((eHBO2_730 * eHB_850) - (eHBO2_850 * eHB_730)) / L);
-            HBO2.add(((OD_730.get(i) * eHB_850) - (OD_850.get(i) * eHB_730)) / ((eHBO2_730 * eHB_850) - (eHBO2_850 * eHB_730)) / L);
+            HB.add(((OD_850.get(count) * eHBO2_730) - (OD_730.get(count) * eHBO2_850)) / ((eHBO2_730 * eHB_850) - (eHBO2_850 * eHB_730)) / L);
+            HBO2.add(((OD_730.get(count) * eHB_850) - (OD_850.get(count) * eHB_730)) / ((eHBO2_730 * eHB_850) - (eHBO2_850 * eHB_730)) / L);
         }
     }
 
@@ -939,6 +914,15 @@ public class DeviceControlActivity extends AppCompatActivity {
         baselineProgress.setMax(100);
         baselineProgress.setCancelable(false);
         baselineProgress.show();
+    }
+
+
+
+
+    public void dismissBaselineProgress(){
+        if(baselineProgress != null){
+            baselineProgress.dismiss();
+        }
     }
 
 

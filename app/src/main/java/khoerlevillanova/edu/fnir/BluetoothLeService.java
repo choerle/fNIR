@@ -301,8 +301,16 @@ public class BluetoothLeService extends Service {
             return null;
         }
 
-        BluetoothGattCharacteristic characteristic = mBluetoothGatt.getService(UUID_SERVICE)
-                .getCharacteristic(UUID_CHARACTERISTIC);
+        BluetoothGattCharacteristic characteristic = null;
+
+        try {
+            characteristic = mBluetoothGatt.getService(UUID_SERVICE)
+                    .getCharacteristic(UUID_CHARACTERISTIC);
+        }
+
+        catch(NullPointerException e){
+            return "ERROR";
+        }
 
         if(characteristic != null) {
             mBluetoothGatt.readCharacteristic(characteristic);
