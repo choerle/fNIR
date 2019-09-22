@@ -4,10 +4,32 @@ package khoerlevillanova.edu.fnir;
 /*
 This is the main activity for controlling and reading from the BLE device
 This activity is created when an item in the device scan activity is clicked.
-Upon creation, the GATT server will automatically be connected to. Once
-connected, there is a menu to chose what to do with the device.
-1. Read voltages and then plot them
-2.
+Upon creation, this class will connect to the desired BLE Device. Once
+connected, there is an option menu to chose what to do with the device:
+1. Connect
+    Reconnects to BLE device that was selected on previous page if connection is lost
+2. Data Analysis
+    This is the main function of this class that recieves data from the BLE device and plots and analyses
+    that data.
+    First, this button calls the function "createBaselineDialog" which gives the user the option to begin.
+    After clicking yes, the getDataClass is initialized, which then starts a short baseline test. After this test is
+    complete, the class will begin analysing and plotting data received from the BLE device.
+    If this button is clicked when the app is in the process of plotting, or if the graph is paused with data
+    still on it, this will reset the graph and data and start a new getDataColletion class.
+3. Stop Data Collection
+    Stops reading values from the BLE device, but leaves graph intact and all the data samples are still contained
+    in array lists
+4. Save Data
+    After the graph is paused, this option appears allowing the user to save the current data sample
+5. Continue Graphing
+    After the graph is paused, this appears and allows the user to continue graphing on the same graph, extending
+    the previous data samples.
+6. Load Data
+    //TODO: When loading data, it is flipped about the x axis
+    //TODO: comparing data?
+    Loads previously saved data samples
+
+Currently it is not possible to graph raw voltage values, only HB and HBO2 readings
  */
 
 
@@ -38,6 +60,7 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ExpandableListView;
@@ -52,16 +75,24 @@ import com.jjoe64.graphview.GridLabelRenderer;
 import com.jjoe64.graphview.LegendRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import static android.os.Environment.DIRECTORY_DOCUMENTS;
 
 
 
@@ -69,33 +100,42 @@ import java.util.TimerTask;
 public class DeviceControlActivity extends AppCompatActivity {
 
 
-
-
     //Constants
-    private final String TAG = "DeviceControlActivity";
+    private final String TAG = "DEVICE CONTROL ACTIVITY";
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
+    public static final String directoryName = "fNIR Data";
 
-    //UI variables
+    //TAGS for logging in different sections of this activity
+    public static final String DATACOLLECTION_LOG_TAG = "DATA COLLECTION:   ";
+    public static final String SAVINGDATA_LOG_TAG = "SAVING DATA:   ";
+    public static final String LOADINGDATA_LOG_TAG = "LOADING DATA:   ";
+    public static final String OPTIONSMENU_LOG_TAG = "User Selected:   ";
+
+    //User Interface Variables variables
     private TextView dataField_730;
     private TextView dataField_850;
     private TextView timeField;
-    private GraphView dataGraph;
+    //ProgressDialog for creating baseline test before data collection begins
     private ProgressDialog baselineProgress;
 
     //Data storage variables
-    private bvoxy mBvoxy;
-    private ArrayList<Double> data_730;
-    private ArrayList<Double> data_850;
-    private ArrayList<Double> data_time;
-    private ArrayList<Double> HB;
-    private ArrayList<Double> HBO2;
-    private int sampleCount = 33;
-    private int incrementProgressBy = 3;
+    private dataAnalysis mDataAnalysis;
+    //private bvoxy mBvoxy;   //bvoxy class for converting voltage values into oxygen readings
+    private ArrayList<Double> data_730; //Array for storing 730 wavelength voltages
+    private ArrayList<Double> data_850; //Array for storing 850 wavelength voltages
+    private ArrayList<Double> data_time; //Array for storing time when samples are taken
+    private ArrayList<Double> HB; //Array for storing oxygenated hemoglobin values
+    private ArrayList<Double> HBO2; //Array for storing de-oxygenated hemoglobin values
+    private int sampleCount = 20; //How many samples for the baseline test
+    private int incrementProgressBy = 5; //This is a variable for the baseline test. In order to use the progress
+        //dialog for the baseline test, the total samples must be 100. To get to 100 from the samples we are taking, we just do
+        //100 = sampleCount*incrementProgressBy
 
     //Graphing variables
-    private boolean graphingRaw;
-    private int count = 0;
+    //GraphView object for graphing the data
+    private GraphView dataGraph;
+    public Integer count = 0;
     private double time = 0;
     private int samplingRate = 100; //In milliseconds
     private LineGraphSeries<DataPoint> series_HB;
@@ -106,17 +146,20 @@ public class DeviceControlActivity extends AppCompatActivity {
     private Timer mTimer;
 
     //Bluetooth variables
-    private String mDeviceName;
-    private String mDeviceAddress;
-    private BluetoothLeService mBluetoothLeService;
+    private String mDeviceName; //Sent from previous activity, name of Bluetooth Low Energy Device
+    private String mDeviceAddress;  //Sent from previous activity, address of Bluetooth Low Energy Device
+    private BluetoothLeService mBluetoothLeService; //Class for handling Bluetooth Low Energy Connection
 
-    //Management of devices state
-    private boolean mConnected = false;     //If connected to a device, this is true
-    private boolean graphing = false;       //If the application is actively updating the graph, this is true
-    private boolean filledGraph = false;    //If there is data on the graph, this is true
+    //Variables that define current state of application
+    public static boolean mConnected = false; //If connected to a device, this is true
+    public static boolean graphing = false; //If the application is actively updating the graph, this is true
+    public static boolean filledGraph = false; //If there is data on the graph, this is true
+    public static boolean dataAnalysis;
 
-    //Variables for saving data
-    private saveData mSaveData;
+    //Class that saves samples (HB, HBO2, and data_time) of the current test, for future reference
+    public saveData mSaveData;
+    //Class that loads a saved test
+    public savedFiles mSavedFiles;
 
 
 
@@ -128,52 +171,28 @@ public class DeviceControlActivity extends AppCompatActivity {
         setContentView(R.layout.activity_device_control);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        //UI variable initializations
+        //User Interface variable initializations
         timeField = findViewById(R.id.timeField);
         dataField_730 = findViewById(R.id.data730);
         dataField_850 = findViewById(R.id.data850);
 
-        //Initializations for save data
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        //Requesting permission to write to the app's storage, for saving data
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
         }
 
-        //Graphing initialization
+        //Graph initialization
         dataGraph = findViewById(R.id.dataGraph);
-        initializeSeries();
-        dataGraph.getViewport().setYAxisBoundsManual(true);
-        dataGraph.getViewport().setMinY(-10);
-        dataGraph.getViewport().setMaxY(20);
-        dataGraph.getViewport().setXAxisBoundsManual(true);
-        dataGraph.setTitleTextSize(110);
-        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(70);
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(70);
-        dataGraph.getGridLabelRenderer().setGridColor(Color.WHITE);
-        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleColor(Color.WHITE);
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitleColor(Color.WHITE);
-        dataGraph.getGridLabelRenderer().setHorizontalLabelsColor(Color.WHITE);
-        dataGraph.getGridLabelRenderer().setVerticalLabelsColor(Color.WHITE);
-        dataGraph.setTitleColor(Color.WHITE);
-        dataGraph.setTitle("Oxygenation");
-        dataGraph.getGridLabelRenderer().setPadding(50);
-        dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time");
-        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Hemodynamic Changes");
-        dataGraph.getGridLabelRenderer().setHighlightZeroLines(true);
-        dataGraph.getLegendRenderer().setVisible(true);
-        dataGraph.getLegendRenderer().setBackgroundColor(Color.TRANSPARENT);
-        dataGraph.getLegendRenderer().setTextColor(Color.WHITE);
-        dataGraph.getLegendRenderer().setTextSize(60);
-        dataGraph.getLegendRenderer().setMargin(20);
-        dataGraph.getLegendRenderer().setSpacing(40);
-        dataGraph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.BOTTOM);
+        setUpGraph();
 
-        //Getting device name and address from intent
+        //Getting device name and device address from intent
         final Intent intent = getIntent();
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
         Log.d(TAG, "Name: " + mDeviceName + "   Address: " + mDeviceAddress);
 
-        //Connecting to BLE services class
+        //Connecting to Bluetooth Low Energy services class, which manages the bluetooth connection
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
@@ -182,19 +201,22 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //Options menu for interacting with selected BLE device
+    //Options menu
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.gatt_services, menu);
 
-        //Determining what buttons should be available when connected to a device
+        //Determining what buttons should be available when connected to a BLE device
         if (mConnected) {
 
             menu.findItem(R.id.menu_connect).setVisible(false);
 
+            //The following options determine the buttons available when the device is in different states
+
             //If the graph is empty
             if(!graphing && !filledGraph){
                 menu.findItem(R.id.dataAnalysis).setVisible(true);
+                menu.findItem(R.id.dataVoltage).setVisible(true);
                 menu.findItem(R.id.stopData).setVisible(false);
                 menu.findItem(R.id.continueGraph).setVisible(false);
                 menu.findItem(R.id.saveData).setVisible(false);
@@ -203,6 +225,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             //If currently graphing
             else if(graphing){
                 menu.findItem(R.id.dataAnalysis).setVisible(false);
+                menu.findItem(R.id.dataVoltage).setVisible(false);
                 menu.findItem(R.id.stopData).setVisible(true);
                 menu.findItem(R.id.continueGraph).setVisible(false);
                 menu.findItem(R.id.saveData).setVisible(true);
@@ -211,17 +234,20 @@ public class DeviceControlActivity extends AppCompatActivity {
             //If the graph is filled but stopped
             else if(!graphing && filledGraph){
                 menu.findItem(R.id.dataAnalysis).setVisible(true);
+                menu.findItem(R.id.dataVoltage).setVisible(true);
                 menu.findItem(R.id.stopData).setVisible(false);
                 menu.findItem(R.id.continueGraph).setVisible(true);
                 menu.findItem(R.id.saveData).setVisible(true);
             }
         }
 
-        //When disconnected, the only button should be to connect and go home
+        //When disconnected, the only button available should be to connect to the BLE device and go
+            // to the home page
         else if(!mConnected){
             menu.findItem(R.id.menu_connect).setVisible(true);
             menu.findItem(R.id.continueGraph).setVisible(false);
             menu.findItem(R.id.dataAnalysis).setVisible(false);
+            menu.findItem(R.id.dataVoltage).setVisible(false);
             menu.findItem(R.id.stopData).setVisible(false);
             menu.findItem(R.id.saveData).setVisible(false);
         }
@@ -229,9 +255,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     }
 
 
-
-
-    //Options menu for graphing and connecting to BLE device
+    //When a button is selected from the options menu
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
@@ -239,39 +263,45 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Connect to device
             case R.id.menu_connect:
 
-                Log.d(TAG, "Menu item connect: trying to connect");
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Connect");
                 mBluetoothLeService.connect(mDeviceAddress);
 
                 return true;
 
+            //Begins data collection starting with a baseline test
             case R.id.dataAnalysis:
 
-                Log.d(TAG, "Menu item startData: trying to startData");
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Data Collection and Analysis");
+                initializeAnalyzedSeries();
+                dataAnalysis = true;
                 createBeginBaselineDialog();
 
-                /*button_saveData.setVisibility(View.INVISIBLE);
-                graphingRaw = true;
-                Log.d(TAG, "Menu item startData: trying to startData");
-                initializeSeries();
-                mTimer.schedule(mGetDataClass, 0, samplingRate);
-                invalidateOptionsMenu();*/
+                return true;
+
+            //Begins collecting and graphing raw data
+            case R.id.dataVoltage:
+
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Raw Data Collection");
+                initializeRawSeries();
+                dataAnalysis = false;
+                createBeginBaselineDialog();
 
                 return true;
 
             //Continues graphing from a stopped graph
             case R.id.continueGraph:
 
-                Log.d(TAG, "Menu item continueGraph: trying to continueGraph");
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Continue graph");
                 mGetDataClass = new getDataClass(true);
                 mTimer = new Timer();
                 mTimer.schedule(mGetDataClass, 0, samplingRate);
 
                 return true;
 
-            //Stops collection of data, but keeps graph intact
+            //Stops data collection, but keeps graph intact
             case R.id.stopData:
 
-                Log.d(TAG, "Menu item stopData: trying to stopData");
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Stop data collection");
                 stopDataCollection();
 
                 return true;
@@ -279,16 +309,23 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Save the current data displayed in the graph
             case R.id.saveData:
 
-                Log.d(TAG, "Menu item saveData: trying to saveData");
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Save Data");
                 stopDataCollection();
                 mSaveData = new saveData();
+
+                return true;
+
+            case R.id.loadData:
+
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Load Data");
+                mSavedFiles = new savedFiles();
 
                 return true;
 
             //Return home
             case R.id.returnTo:
 
-                Log.d(TAG, "Returning home");
+                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Returning home");
                 Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
                 startActivity(i);
                 finish();
@@ -302,24 +339,25 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //This is the first step of data collection
     //Initializes and displays a dialog that asks the user if they want to start a baseline test
-    //If the user clicks yes a baseline is taken, which takes about 5 seconds, then the graph begins
+    //If the user clicks yes the getDataClass is initialized, which begins a required baseline test
     private void createBeginBaselineDialog(){
         AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
 
+        //If clicked, begins baseline test
         builder.setPositiveButton("Begin", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
-                graphingRaw = false;        //If a baseline is taken, the data is not raw
-                initializeSeries();
                 mTimer = new Timer();
                 mGetDataClass = new getDataClass();
                 mTimer.schedule(mGetDataClass, 0, samplingRate);
             }
         });
 
+        // User cancelled the dialog, nothing happens
         builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
-                // User cancelled the dialog
+
             }
         });
 
@@ -331,12 +369,33 @@ public class DeviceControlActivity extends AppCompatActivity {
     }
 
 
+    //Sets up the progress bar for showing how much of the baseline test is complete
+    public void createBaselineProgress(){
+        baselineProgress = new ProgressDialog(this);
+        baselineProgress.setTitle("Creating Baseline...");
+        baselineProgress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        baselineProgress.setMax(100);
+        baselineProgress.setCancelable(false);
+        baselineProgress.show();
+    }
 
 
-    //This is the class that recieves the data from the device and then plots it
-    //If graphingRaw is true, then a raw graph of voltage readings will be created
-    //If graphingRaw is false, then a 20 sample baseline test will be collected and then
-    //the data analysis will begin
+    //If the baseline progress bar needs to be cancelled for any reason
+    //This is only used once in this program, and that is the case when the user connects to a BLE device
+    //and clicks begin baseline test, but the BLE device does not send any data
+    public void dismissBaselineProgress(){
+        if(baselineProgress != null){
+            baselineProgress.dismiss();
+        }
+    }
+
+
+
+
+    //This is the main class for this activity. It collects and processes the data
+    //This class is initialized when the user clicks yes on the createBeginBaselineDialog after selecting one of the collect data
+    //options from the options menu.
+    //First, this class creates a baseline, and then collects, analyses, and plots data received from the BLE Device
     public class getDataClass extends TimerTask {
 
         //If true, the app will begin by creating a baseline and then graphing
@@ -353,60 +412,35 @@ public class DeviceControlActivity extends AppCompatActivity {
             invalidateOptionsMenu();
         }
 
-
         //Constructor for creating a blank graph
         getDataClass(){
-
-            createBaselineProgress();
             gettingBaseline = true;
-
+            createBaselineProgress();
             filledGraph = true;
             graphing = true;
             invalidateOptionsMenu();
-
-            /*//Graphing raw voltages
-            if(graphingRaw){
-                gettingBaseline = false;
-                dataGraph.getViewport().setMinY(0);
-                dataGraph.getViewport().setMaxY(2000);
-            }
-
-            //Graphing oxygenation readings
-            else {
-                //Initialization of progress dialog for creating baseline text
-                createBaselineProgress();
-                gettingBaseline = true;
-            }*/
         }
 
-
-        //This method runs every X seconds
+        //This method runs every X seconds, and is responsible for controlling when data is received from
+        //BLE device
         public void run() {
             runOnUiThread(new Runnable() {
 
                 @Override
                 public void run() {
 
-                    //Checking to see if data is available
+                    //Checking to see if BLE connection is valid
                     if (mBluetoothLeService != null) {
 
+                        //If data is available from the BLE Device
                         if (mBluetoothLeService.readVoltages() != null) {
 
-                            //This sets the data string equal to input string
+                            //This function receives data from BLE device and saves it
                             getRawDataValues();
 
-                            //For graphing raw voltages
-                            if (graphingRaw) {
-                                getRawData();
-                            }
-
-                            //For first creating a baseline then graphing oxygen levels
-                            else {
-                                if (gettingBaseline)
-                                    getBaseline();
-                                else
-                                    getData();
-                            }
+                            //If baseline test is running, continue running it, else plot the data
+                            if (gettingBaseline) getBaseline();
+                            else getData();
                         }
                     }
                 }
@@ -414,15 +448,16 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
 
 
-        //Getting the raw string from BLE device
+        //This function receives data from BLE device and saves it
         public void getRawDataValues(){
 
+            //Read voltages is a method from the BLE service class which reads a string that the BLE
+            //device sends. In this case, the string contains 2 voltage readings, one from each wavelength
             data = mBluetoothLeService.readVoltages();
-            Log.d(TAG, "Reading data:      " + data);
 
-            //If the data read characteristic could not be found
+            //If readVoltages does not work
             if(data.equals("ERROR")){
-                Log.d(TAG, "UUID not found on device. Ending activity");
+                Log.d(TAG, DATACOLLECTION_LOG_TAG + "UUID not found on device. Ending activity");
                 Toast.makeText(DeviceControlActivity.this, "Device does not support data reading",
                         Toast.LENGTH_LONG).show();
                 dismissBaselineProgress();
@@ -430,95 +465,91 @@ public class DeviceControlActivity extends AppCompatActivity {
                 return;
             }
 
-            //730 wavelength
+            //Extracting 730 wavelength data reading from data string and setting it equal to a temporary variable
             data_730_d = get730(data);
 
-            //850 wavelength
+            //Extracting 850 wavelength data reading from data string and setting it equal to a temporary variable
             data_850_d = get850(data);
-        }
 
-
-        //Graphing raw voltages
-        private void getRawData(){
-
-            //Determines when the data sample is taken, in seconds
-            time = ((double)count) * samplingRate / 1000;
-
-            //Adding new readings to the array lists
-            data_730.add(data_730_d);
-            data_850.add(data_850_d);
-            data_time.add(time);
-
-            //Adding voltages to graph
-            graphData(data_730_d, series_730);
-            graphData(data_850_d, series_850);
-
-            updateUI();
-
-            //Increment count in order to increment time
-            ++count;
+            //Adds data points to the respective arrays and Filters data samples and adds to the array list
+            //Only used to store data points after baseline test is finished
+            if(!gettingBaseline) mDataAnalysis.addSamplesToVoltageArray(data_730_d, data_850_d, count);
+            //While baseline test is occuring, directly add the data points to the arrays here because the previous class is not initialized
+            else{
+                //Adding new readings to the array lists
+                data_730.add(data_730_d);
+                data_850.add(data_850_d);
+            }
         }
 
 
         //Creates a baseline using the first sampleCount data samples
+        //Currently, sampleCount is set to 50. 50 samples appears to work for a baseline test,
+        //but future research could change this
         private void getBaseline() {
 
-            //Getting the first 20 samples for a baseline
+            //Getting sampleCount samples from BLE device
             if (count < sampleCount) {
 
                 //Incrementing the progress dialog
                 baselineProgress.incrementProgressBy(incrementProgressBy);
 
-                //Adding new readings to the array lists
-                data_730.add(data_730_d);
-                data_850.add(data_850_d);
-
                 ++count;
             }
 
 
-            //After getting sampleCount data samples, create the baseline array
+            //After getting sampleCount data samples, create the baseline array from the first
+            //sampleCount elements of the data_730 and data_850 arrays
             else if (count == sampleCount && gettingBaseline) {
 
                 baselineProgress.dismiss();
-                Log.d(TAG, "BEGINNING DATA ANALYSIS");
-                mBvoxy = new bvoxy();
-                count = 0;
-                data_730 = new ArrayList<>();
-                data_850 = new ArrayList<>();
-                gettingBaseline = false;
+                Log.d(TAG, DATACOLLECTION_LOG_TAG + "Baseline complete.");
+                mDataAnalysis = new dataAnalysis(HB, HBO2, data_730, data_850, sampleCount);   //Initializing class for data analysis based on previously collected samples
+                count = 0;  //TODO: reset all arrays after baseline
+                //data_730 = new ArrayList<>();
+                //data_850 = new ArrayList<>();
+
+                gettingBaseline = false;    //When gettingBaseline is set to false, the run method will stop
+                    //the baseline, and begin data collection and graphing
             }
         }
 
 
-        //After obtaining a baseline, read in the voltages and convert them
+        //Every time a new data sample is collected, this function converts the raw data into Hb and HBO2 values and graphs them
+        //Only used after the baseline test is finished
         public void getData() {
 
             //Determines when the data sample is taken, in seconds
-            time = ((double)count) * samplingRate / 1000;
+            time = ((double) count) * samplingRate / 1000;
 
-            //Adding new readings to the array lists
-            data_730.add(data_730_d);
-            data_850.add(data_850_d);
+            //Adding new time value to time array
             data_time.add(time);
+            Log.d(TAG, DATACOLLECTION_LOG_TAG + "Count: " + count + "\n\n Data: " + data_730_d + "\n\nData: " + data_730.get(count));
 
-            //Converting the 2 voltage readings into oxygenation readings
-            mBvoxy.addHemoglobin();
+            if(dataAnalysis){
+                //Converting the 2 voltage readings into oxygenation readings and add to respective arrays
+                mDataAnalysis.addHemoglobin(count);
 
-            //Adding the HB and HBO2 points to the graph
-            graphData(HB.get(count), series_HB);
-            graphData(HBO2.get(count), series_HBO2);
+                //Adding the HB and HBO2 points to the graph
+                graphData(HB.get(count), series_HB);
+                graphData(HBO2.get(count), series_HBO2);
+            }
+
+            else{
+                //Adding the 730 and 850 readings to the graph
+                graphData(data_730.get(count), series_730);
+                graphData(data_850.get(count), series_850);
+            }
 
             updateUI();
 
-            //Increment count in order to increment time
+            //Increment count
             ++count;
         }
 
 
-        //Getting the 730 readings from the input string
+        //Getting the 730 nm sample from the string received from the BLE device
         public double get730(String data){
-
             String data_730_1 = data.substring(0, 2);
             String data_730_2 = data.substring(3, 5);
             String data_730s = new StringBuilder().append(data_730_1).append(data_730_2).toString();
@@ -526,9 +557,8 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
 
 
-        //Getting the 850 readings from the input string
+        //Getting the 850 nm sample from the string received from the BLE device
         public double get850(String data){
-
             String data_850_1 = data.substring(6, 8);
             String data_850_2 = data.substring(9, 11);
             String data_850s = new StringBuilder().append(data_850_1).append(data_850_2).toString();
@@ -536,12 +566,10 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
 
 
-        //Graphs data by adding to old series and plotting it
+        //Graphs data by adding to series and plotting it
         public void graphData(Double value,  LineGraphSeries<DataPoint> series){
-
-            Log.d(TAG, "Graphing...");
             DataPoint dataPoint = new DataPoint(time, value);
-            series.appendData(dataPoint, true,10000);
+            series.appendData(dataPoint, true,50000);
             dataGraph.getViewport().setMinX(0);
             dataGraph.getViewport().setMaxX(time);
         }
@@ -554,40 +582,36 @@ public class DeviceControlActivity extends AppCompatActivity {
             timeField.setText(String.valueOf((int)time));
 
             //Updating the UI to display the 730 and 850 voltage readings
-            dataField_730.setText(String.valueOf(data_730_d));
-            dataField_850.setText(String.valueOf(data_850_d));
+            dataField_730.setText(String.format("%d", (int) data_730_d));
+            dataField_850.setText(String.format("%d", (int) data_850_d));
         }
     }
 
 
 
 
-    //Class for saving text file
+    //This class saves a text file which contains HB and HBO2 readings, and the time at which each reading was taken
+    //When you need to save a file, initialize this class, and this class will create a dialog to enter the file name
+    //And then save the file to a specific directory
     public class saveData {
 
-
         String saved_data;
-        String string_730;
-        String string_850;
-        String string_time;
         String fileName;
 
-
-        //Constructor that creates one string to be saved from three smaller strings
+        //This constructor creates one string from the HBO2, HB, and time arrays
         public saveData(){
-            string_730 = data_730.toString();
-            string_850 = data_850.toString();
-            string_time = data_time.toString();
             fileName = null;
             StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.append(data_730 + "\n-----------------------\n" + string_850 +
-                    "\n-----------------------\n" + string_time);
+            stringBuilder.append(HB);
+            stringBuilder.append(HBO2);
+            stringBuilder.append(data_time);
             saved_data = stringBuilder.toString();
             createTextFile();
         }
 
 
-        //Alert dialog for entering name for text file to be saved as
+        //Alert dialog that has an editText field so that the user can enter a name for the file that will be saved
+        //Upon clicking the save button, this function will call saveTextAsFile which will save the file in an external storage directory
         private void createTextFile(){
 
             AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
@@ -612,12 +636,13 @@ public class DeviceControlActivity extends AppCompatActivity {
                     fileName = input.getText().toString();
 
                     if (fileName != null && !fileName.equals("")) {
+                        Log.d(TAG, SAVINGDATA_LOG_TAG + "Saving file: " + fileName);
                         saveTextAsFile(fileName, saved_data);
-                        Toast.makeText(DeviceControlActivity.this, fileName + " Saved.", Toast.LENGTH_LONG).show();
                         dialog.dismiss();
                     }
 
                     else {
+                        Log.d(TAG, SAVINGDATA_LOG_TAG + "Invalid file name: " + fileName);
                         Toast.makeText(DeviceControlActivity.this, "Please enter a valid name", Toast.LENGTH_LONG).show();
                     }
                 }
@@ -635,28 +660,292 @@ public class DeviceControlActivity extends AppCompatActivity {
         }
 
 
-        //Method for saving the text file of data
+        //Method for saving the text file to the app's internal storage
         private void saveTextAsFile(String filename, String content) {
-            String fileName = filename + ".txt";
 
-            //Create File
-            File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath(), fileName);
+            //Checking if there is space on the phone to save a file
+            boolean spaceAvailable = isExternalStorageWritable();
 
-            //Write to File
-            try {
-                FileOutputStream fos = new FileOutputStream(file);
-                fos.write(content.getBytes());
-                fos.close();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-                Toast.makeText(DeviceControlActivity.this, "File not Found!", Toast.LENGTH_SHORT).show();
-            } catch (IOException e) {
-                e.printStackTrace();
-                Toast.makeText(DeviceControlActivity.this, "Error Saving!", Toast.LENGTH_SHORT).show();
+            if(spaceAvailable){
+
+                try {//TODO: what if two files have the same name?
+                    //TODO: Logging?
+                    /*File extStore = new File(Environment.getExternalStorageDirectory(), directoryName);
+                    if (!extStore.exists()) {
+                        extStore.mkdirs();
+                    }*/
+                    File extStore = getPublicAlbumStorageDir(directoryName);   //Creating the directory, within external storage, to hold this apps files
+                    String path = extStore.getAbsolutePath() + "/" + filename + ".txt";  //The address of the file we are creating
+                    File myFile = new File(path);   //The file that we will write our data in and save it in the specified directory
+
+                    if(!myFile.exists()) {
+                        myFile.createNewFile();
+
+                        //Writing to the file
+                        FileOutputStream fOut = new FileOutputStream(myFile);
+                        OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
+                        myOutWriter.append(content);
+                        myOutWriter.close();
+                        fOut.close();
+
+                        Log.d(TAG, SAVINGDATA_LOG_TAG + filename + " saved.");
+                        Toast.makeText(getApplicationContext(), filename + " saved", Toast.LENGTH_LONG).show();
+                    }
+
+                    else {
+                        Log.d(TAG, SAVINGDATA_LOG_TAG + filename + " save failed.");
+                        Toast.makeText(getApplicationContext(), "There is already a file named: " + filename + "." +
+                                "Try again with a different file name.", Toast.LENGTH_LONG).show();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
+
+            else {
+                Toast.makeText(DeviceControlActivity.this, "No space available to save this file", Toast.LENGTH_LONG);
+            }
+        }
+
+
+        //Returns a directory within the main external storage folder, named directoryName
+        //If this directory does not exist, this function will attempt to create it
+        private File getPublicAlbumStorageDir(String directoryName) {
+            //Creating the file for the desired directory
+            File file = new File(Environment.getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS), directoryName);
+            //If the directory does not exist, try to create it
+            if (!file.exists()) {
+                boolean created = file.mkdirs();
+                //If the directory can not be created
+                if (!created) {
+                    Log.d(TAG, "Directory not created");
+                }
+                else Log.d(TAG, "Directory created!! YES!");
+            }
+            return file;
+        }
+
+
+        //Checking if we can write to the external storage
+        //TODO: does this work? Better way to do this? Checking app permissions?
+        private boolean isExternalStorageWritable() {
+            String state = Environment.getExternalStorageState();
+            if (Environment.MEDIA_MOUNTED.equals(state)) {
+                return true;
+            }
+            return false;
         }
     }
 
+
+
+    //Class for displaying all the saved data files
+    //This class is initialized when the "load saved data" option is chose from the options menu
+    public class savedFiles {
+
+        String fileName;
+        //Three arrays to hold data that is loaded from app storage
+        ArrayList<Double> savedHB = new ArrayList<>();
+        ArrayList<Double> savedHBO2 = new ArrayList<>();
+        ArrayList<Double> savedTime = new ArrayList<>();
+
+
+        //Constructor displays all saved files and when one is clicked loads that file into the graph
+        savedFiles () {
+
+            //This is accomplished with a pop up dialog
+            AlertDialog.Builder builderSingle = new AlertDialog.Builder(DeviceControlActivity.this);
+            builderSingle.setTitle("Saved Files: ");
+
+            //These lines of code find the directory where this app saves its files and then puts all of the file names into a string array
+            String path = (Environment.getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS).toString()+ "/" + directoryName);
+            File f = new File(path);
+            String[] files = f.list();
+
+            //If the directory is empty, do not try to list all the files in it or the app will crash
+            //Normally the directory will never be empty, but this is a precaution
+            if(files != null) {
+
+                final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(DeviceControlActivity.this, R.layout.file_listview, R.id.fileName, files);
+
+                builderSingle.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+
+                //Creates buttons to determine what happens with selected file
+                builderSingle.setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        fileName = arrayAdapter.getItem(which);
+                        AlertDialog.Builder builderInner = new AlertDialog.Builder(DeviceControlActivity.this);
+                        builderInner.setMessage(fileName);
+                        builderInner.setTitle("You selected: ");
+                        //Opens the selected file
+                        builderInner.setPositiveButton("Open", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                openFile();
+                                dialog.dismiss();
+                            }
+                        });
+                        //Deletes the selected file
+                        builderInner.setNegativeButton("Delete File", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                AlertDialog.Builder builderDelete = new AlertDialog.Builder(DeviceControlActivity.this);
+                                builderDelete.setTitle("Are you sure you want to delete " + fileName + "?");
+
+                                builderDelete.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int id) {
+                                        deleteFile();
+                                        dialog.dismiss();
+                                    }
+                                });
+                                builderDelete.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int id) {
+                                        dialog.dismiss();
+                                    }
+                                });
+
+                                builderDelete.show();
+
+
+                            }
+                        });
+                        builderInner.show();
+                    }
+                });
+                builderSingle.show();
+            }
+
+            else Toast.makeText(DeviceControlActivity.this, "You have no saved files", Toast.LENGTH_LONG).show();
+        }
+
+        //Opens the file selected from the alert dialog
+        public void openFile () {
+
+            try {
+                File extStore = getPublicAlbumStorageDir(directoryName);   //Creating the directory, within external storage, to hold this apps files
+                String path = extStore.getAbsolutePath() + "/" + fileName;  //The address of the file we are creating
+                File myFile = new File(path);
+                Log.d("LOADING DATA", "Attempting to load file: " + fileName);
+                FileInputStream fileInputStream = new FileInputStream(myFile);
+                DataInputStream in = new DataInputStream(fileInputStream);
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
+
+                String inputString = null;
+                String text;
+
+                while ((text = bufferedReader.readLine()) != null) {
+                    inputString = (inputString + text);
+                }
+
+                if(inputString != null) {
+                    //Extracting all numbers from file
+                    ArrayList<Double> inputData = new ArrayList<>();
+                    Pattern p = Pattern.compile("(\\d+(?:\\.\\d+))");
+                    Matcher m = p.matcher(inputString);
+                    while (m.find()) {
+                        inputData.add(Double.parseDouble(m.group(1)));
+                    }
+
+                    Log.d(TAG, LOADINGDATA_LOG_TAG + "Successfully loaded data. Graphing...");
+                    //The input data needs to be split into its 3 components
+                    splitArrayList(inputData);
+                    //Graph the data
+                    graphSavedData();
+                }
+
+                else{
+                    Log.d(TAG, LOADINGDATA_LOG_TAG + "is empty");
+                }
+
+                bufferedReader.close();
+            } catch (FileNotFoundException e) {
+                Log.d(TAG, LOADINGDATA_LOG_TAG + "File Not Found Exception");
+            } catch (IOException e) {
+                Log.d(TAG, LOADINGDATA_LOG_TAG + "IO Exception");
+            }
+        }//TODO: switch graph colors on original graph
+
+
+        public boolean deleteFile(){
+            File extStore = getPublicAlbumStorageDir(directoryName);   //Creating the directory, within external storage, to hold this apps files
+            String path = extStore.getAbsolutePath() + "/" + fileName;  //The address of the file we are creating
+            File myFile = new File(path);
+            return myFile.delete();
+        }
+
+
+        //Returns a directory within the main external storage folder, named directoryName
+        //If this directory does not exist, this function will attempt to create it
+        private File getPublicAlbumStorageDir(String directoryName) {
+            //Creating the file for the desired directory
+            File file = new File(Environment.getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS), directoryName);
+            //If the directory does not exist, try to create it
+            if (!file.exists()) {
+                boolean created = file.mkdirs();
+                //If the directory can not be created
+                if (!created) {
+                    Log.d(TAG, LOADINGDATA_LOG_TAG + "Directory not created");
+                }
+                else Log.d(TAG, LOADINGDATA_LOG_TAG + "Directory created!! YES!");
+            }
+            return file;
+        }
+
+        //Splitting up the input array into an array for time, HB, and HBO2
+        public void splitArrayList (ArrayList<Double> inputData) {
+            int size = inputData.size() / 3;
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < size; ++j) {
+                    //Elements j to size, time
+                    if (i == 0) savedHB.add(inputData.get(j));
+                    //Elements (j + size) to 2*size, HB
+                    if (i == 1) savedHBO2.add(inputData.get(j + size));
+                    //Elements (j + 2*size) to end
+                    if (i == 2) savedTime.add(inputData.get(j + 2 * size));
+                }
+            }
+        }
+
+        //Graphing the data file that was just opened
+        public void graphSavedData(){
+
+            Log.d(TAG, LOADINGDATA_LOG_TAG + "Graphing...");
+
+            //Old series must be removed from the graph
+            dataGraph.removeAllSeries();
+
+            //Deoxygenated hemoglobin series initialization
+            series_HB = new LineGraphSeries<>();
+            series_HB.setColor(Color.RED);
+            dataGraph.addSeries(series_HB);
+            series_HB.setTitle("Deoxygenated");
+
+            //Oxygenated hemoglobin series initialization
+            series_HBO2 = new LineGraphSeries<>();
+            series_HBO2.setColor(Color.BLUE);
+            dataGraph.addSeries(series_HBO2);
+            series_HBO2.setTitle("Oxygenated");
+
+
+            //Adding the data points to the grpah
+            for(int i = 0; i < savedTime.size(); ++i){
+                DataPoint dataPoint = new DataPoint(savedTime.get(i), savedHB.get(i));
+                series_HB.appendData(dataPoint, true,50000);
+
+                DataPoint dataPoint2 = new DataPoint(savedTime.get(i), savedHBO2.get(i));
+                series_HBO2.appendData(dataPoint2, true,50000);
+            }
+
+            dataGraph.getViewport().setMinX(0);
+            dataGraph.getViewport().setMaxX(savedTime.get(savedTime.size()-1));
+        }
+    }
 
 
 
@@ -683,6 +972,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             mBluetoothLeService = null;
         }
     };
+
 
 
 
@@ -737,6 +1027,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
     //Stops graphing and collecting data
+    //This is used when the user clicks either "Stop Graphing" or "Save Data"
     public void stopDataCollection(){
         graphing = false;
         Log.d(TAG, "Graph stopped");
@@ -750,9 +1041,9 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //Initializing the series, timer, and getData class
-    //A series is just a collection of numbers to be plotted on a graph
-    public void initializeSeries(){
+    //Initializing the series, timer, and getData class for graphing HB and HBo2
+    //A series is just a collection of numbers to be plotted on a graph (a special class for creating graphs)
+    public void initializeAnalyzedSeries(){
 
         //Resetting the time for incoming data
         count = 0;
@@ -780,15 +1071,62 @@ public class DeviceControlActivity extends AppCompatActivity {
         dataGraph.addSeries(series_HBO2);
         series_HBO2.setTitle("Deoxygenated");
 
-        /*//730nm wavelength series initialization
+        //Setting up the graph for analyzed data
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Hemodynamic Changes");
+        dataGraph.setTitle("Oxygenation Levels");
+        dataGraph.getLegendRenderer().setVisible(true);
+        dataGraph.getLegendRenderer().setBackgroundColor(Color.TRANSPARENT);
+        dataGraph.getLegendRenderer().setTextColor(Color.WHITE);
+        dataGraph.getLegendRenderer().setTextSize(60);
+        dataGraph.getLegendRenderer().setMargin(20);
+        dataGraph.getLegendRenderer().setSpacing(40);
+        dataGraph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.BOTTOM);
+        dataGraph.getViewport().setMinY(-20);
+        dataGraph.getViewport().setMaxY(30);
+    }
+
+
+
+    //Initializing the series, timer, and getData class for graphing raw voltages from the sensor
+    //A series is just a collection of numbers to be plotted on a graph (a special class for creating graphs)
+    public void initializeRawSeries(){
+
+        //Resetting the time for incoming data
+        count = 0;
+        time = 0;
+
+        //Old series must be removed from the graph
+        dataGraph.removeAllSeries();
+
+        //Creating new array list to store the data
+        data_850 = new ArrayList<>();
+        data_730 = new ArrayList<>();
+        data_time = new ArrayList<>();
+
+        //Deoxygenated hemoglobin series initialization
         series_730 = new LineGraphSeries<>();
         series_730.setColor(Color.BLUE);
         dataGraph.addSeries(series_730);
+        series_730.setTitle("730 nm");
 
-        //850nm wavelength series initialization
+        //Oxygenated hemoglobin series initialization
         series_850 = new LineGraphSeries<>();
         series_850.setColor(Color.RED);
-        dataGraph.addSeries(series_850);*/
+        dataGraph.addSeries(series_850);
+        series_850.setTitle("850 nm");
+
+        //Setting up the graph for raw data
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Voltage");//TODO: what is the y axis?
+        dataGraph.setTitle("Light Sensor Data");
+        dataGraph.getLegendRenderer().setVisible(true);
+        dataGraph.getLegendRenderer().setBackgroundColor(Color.TRANSPARENT);
+        dataGraph.getLegendRenderer().setTextColor(Color.WHITE);
+        dataGraph.getLegendRenderer().setTextSize(60);
+        dataGraph.getLegendRenderer().setMargin(20);
+        dataGraph.getLegendRenderer().setSpacing(40);
+        dataGraph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.BOTTOM);
+        dataGraph.getViewport().setMinY(0);
+        dataGraph.getViewport().setMaxY(3000);
     }
 
 
@@ -845,8 +1183,31 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    public void setUpGraph(){
+        dataGraph.getViewport().setYAxisBoundsManual(true);
+        dataGraph.getViewport().setMinY(-20);
+        dataGraph.getViewport().setMaxY(30);
+        dataGraph.getViewport().setXAxisBoundsManual(true);
+        dataGraph.setTitleTextSize(110);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleTextSize(70);
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitleTextSize(70);
+        dataGraph.getGridLabelRenderer().setGridColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitleColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setVerticalAxisTitleColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setHorizontalLabelsColor(Color.WHITE);
+        dataGraph.getGridLabelRenderer().setVerticalLabelsColor(Color.WHITE);
+        dataGraph.setTitleColor(Color.WHITE);
+        dataGraph.setTitle("fNIRS");
+        dataGraph.getGridLabelRenderer().setPadding(50);
+        dataGraph.getGridLabelRenderer().setHorizontalAxisTitle("Time");
+        dataGraph.getGridLabelRenderer().setHighlightZeroLines(true);
+    }
 
-    //Class for creating oxygenated and deoxygenated hemoglobin arrays
+
+
+
+    // TODO: this has been transferred to its own class: see
+    // Class for creating oxygenated and deoxygenated hemoglobin arrays
     public class bvoxy {
 
         //Constants for blood oxygen calculation based on 730nm and 850nm light
@@ -906,24 +1267,8 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
-    //Sets up the progress dialog for creating the baseline test
-    public void createBaselineProgress(){
-        baselineProgress = new ProgressDialog(this);
-        baselineProgress.setTitle("Creating Baseline...");
-        baselineProgress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        baselineProgress.setMax(100);
-        baselineProgress.setCancelable(false);
-        baselineProgress.show();
-    }
 
 
-
-
-    public void dismissBaselineProgress(){
-        if(baselineProgress != null){
-            baselineProgress.dismiss();
-        }
-    }
 
 
 
@@ -946,7 +1291,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         Log.d(TAG, "ON PAUSE CALLED");
         finish();
     }
-
+    //TODO: destroy connection when this activity is closed
 
 
 

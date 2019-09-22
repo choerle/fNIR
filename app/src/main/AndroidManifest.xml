@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <application
         android:allowBackup="true"
@@ -15,8 +16,9 @@
         android:roundIcon="@drawable/app_icon"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity"
-            android:screenOrientation="portrait" >
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -24,21 +26,24 @@
             </intent-filter>
         </activity>
         <activity
-            android:screenOrientation="portrait"
             android:name=".DeviceScanActivity"
-            android:parentActivityName=".MainActivity" />
+            android:parentActivityName=".MainActivity"
+            android:screenOrientation="portrait" />
         <activity
-            android:screenOrientation="portrait"
             android:name=".DeviceControlActivity"
-            android:parentActivityName=".DeviceScanActivity" />
+            android:parentActivityName=".DeviceScanActivity"
+            android:screenOrientation="portrait" />
 
         <service
-            android:screenOrientation="portrait"
             android:name=".BluetoothLeService"
-            android:enabled="true" />
+            android:enabled="true"
+            android:screenOrientation="portrait" />
 
-        <activity android:name=".oldData"
-            android:parentActivityName=".MainActivity">
+        <activity
+            android:name=".oldData"
+            android:parentActivityName=".MainActivity"></activity>
+        <activity android:name=".viewOldData"
+            android:parentActivityName=".oldData">
         </activity>
     </application>
 

@@ -20,27 +20,37 @@
         android:title="Options"
         app:showAsAction="always" />
     <item
+        android:id="@+id/saveData"
+        android:orderInCategory="110"
+        android:title="Save Data" />
+    <item
         android:id="@+id/returnTo"
-        android:orderInCategory="109"
+        android:orderInCategory="111"
         android:title="Home" />
     <item
         android:id="@+id/menu_connect"
         android:orderInCategory="102"
         android:title="@string/menu_connect" />
     <item
-        android:id="@+id/saveData"
-        android:orderInCategory="103"
-        android:title="Save Data" />
+        android:id="@+id/loadData"
+        android:orderInCategory="111"
+        android:title="Load Old Data" />
     <item
         android:id="@+id/dataAnalysis"
         android:orderInCategory="104"
         android:title="Begin Data Collection" />
+
+    <item
+        android:id="@+id/dataVoltage"
+        android:orderInCategory="104"
+        android:title="Begin Raw Data Collection" />
+
     <item
         android:id="@+id/stopData"
         android:orderInCategory="107"
         android:title="Stop Data Collection" />
     <item
         android:id="@+id/continueGraph"
-        android:orderInCategory="108"
+        android:orderInCategory="109"
         android:title="Continue Data Collection" />
 </menu>

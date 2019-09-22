@@ -10,28 +10,29 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="0dp"
-        android:layout_marginBottom="36dp"
-        android:background="@drawable/background2"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        android:background="@drawable/background2">
 
-        <com.jjoe64.graphview.GraphView
-            android:id="@+id/dataGraph"
-            android:layout_width="match_parent"
-            android:layout_height="323dp"
-            android:layout_marginLeft="10dp"
-            android:layout_marginRight="10dp"
-            android:layout_marginTop="10dp" />
-
-        <Button
-            android:id="@+id/button_load_data"
+        <TextView
+            android:id="@+id/textView"
+            style="@style/DataText.Large"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
+            android:layout_alignParentTop="true"
             android:layout_centerHorizontal="true"
-            android:layout_marginBottom="17dp"
-            android:text="Load Data" />
+            android:layout_marginTop="14dp"
+            android:text="Files:"
+            tools:layout_editor_absoluteX="16dp"
+            tools:layout_editor_absoluteY="16dp" />
+
+        <ListView
+            android:id="@+id/lvFiles"
+            style="@style/DataText.Small"
+            android:layout_width="match_parent"
+            android:layout_height="225dp"
+            android:layout_alignParentTop="true"
+            android:layout_marginTop="106dp"
+            tools:layout_editor_absoluteX="0dp"
+            tools:layout_editor_absoluteY="57dp" />
 
     </RelativeLayout>
 

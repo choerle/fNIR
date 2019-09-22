@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <RelativeLayout
+        android:layout_width="300dp"
+        android:layout_height="500dp">
+
+        <ListView
+            android:id="@+id/lvNewDevices"
+            style="@style/DataText.Small"
+            android:layout_width="match_parent"
+            android:layout_height="225dp"
+            android:layout_alignParentTop="true"
+            android:layout_marginTop="106dp"
+            tools:layout_editor_absoluteX="0dp"
+            tools:layout_editor_absoluteY="57dp" />
+
+    </RelativeLayout>
+
+</android.support.constraint.ConstraintLayout>
