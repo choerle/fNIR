@@ -1,6 +1,8 @@
 package khoerlevillanova.edu.fnir;
 
 import java.util.ArrayList;
+//import khoerlevillanova.edu.fnir.
+import uk.me.berndporr.iirj.Butterworth;
 
 // This class is used to perform analysis on the raw voltage readings
 // When the class is initialized, the arrays for storing voltages and processed data will be initialized
@@ -19,6 +21,9 @@ public class dataAnalysis {
     private final double L = 0.015;
 
     private final int filterLength = 5;
+    private final double[] coefficients = {.1,.1,.1,.1,.1,.1,.1,.1,.1,.1};
+    fir1 f;
+
 
     //Baseline values
     private Double baseline_730;
@@ -34,33 +39,35 @@ public class dataAnalysis {
     private ArrayList<Double> data_730;
     private ArrayList<Double> data_850;
 
-    private Double[] h = new Double[]{.2,.2,.2,.2,.2};
+    private Butterworth butterworth;
 
+    private Double[] h = new Double[]{.1,.1,.1,.1,.1,.1,.1,.1,.1,.1};
 
+    //Size of baseline sample
     double sampleCount;
 
 
     dataAnalysis(ArrayList<Double> HB1, ArrayList<Double> HBO21, ArrayList<Double> data_7301,
                  ArrayList<Double> data_8501, double sampleCount1) {
 
-
+        f = new fir1(coefficients);
+        butterworth = new Butterworth();
+        butterworth.lowPass(5,10,.1);
 
         OD_730 = new ArrayList<>();
         OD_850 = new ArrayList<>();
-
+        //Clean this up
         HB = HB1;
         HBO2 = HBO21;
         data_730 = data_7301;
         data_850 = data_8501;
 
         sampleCount = sampleCount1;
-
-        getBaseLine();
     }
 
 
     //Creating the baseline arrays from first sampleCount samples
-    private void getBaseLine() {
+    public void getBaseLine() {
 
         Double sum730 = 0.0;
         Double sum850 = 0.0;
@@ -88,22 +95,28 @@ public class dataAnalysis {
 
     //This function adds the most recent voltage readings onto the arrays and performing a simple filter on the samples
     //This sums up the previous filterLength samples, and then divides by filterLength to find the avergae of the last couple samples
-    public void addSamplesToVoltageArray(Double data_730d, Double data_850d, int count){
+    public void addSamplesToVoltageArray(Double data_730d, Double data_850d) {
 
-        /*int numberSamples = 0;
+        data_730.add(new Double(butterworth.filter(data_730d.doubleValue())));
 
-        for(int i = 0; i < filterLength; ++i){
-            if(data_730.get(count-i-1) != null){
-                data_730d += data_730.get(count-i-1);
-                data_850d += data_850.get(count-i-1);
-                ++numberSamples;
-            }
-        }
+        data_850.add(new Double(butterworth.filter(data_850d.doubleValue())));
 
-        data_730d = data_730d/numberSamples;*/
-        data_730.add(data_730d);
+        //data_730.add(data_730d);
+        //data_850.add(data_850d);
+        //data_730.add(new Double(f.getOutputSample(data_730d.doubleValue())));
 
-        //data_730d = data_730d/numberSamples;
-        data_850.add(data_850d);
+        //data_850.add(new Double(f.getOutputSample(data_850d.doubleValue())));
     }
+
+
+    //A function to reassign new arrays to the voltage arrays
+    public void reassign(ArrayList<Double> data_7301,
+                         ArrayList<Double> data_8501){
+        data_730 = data_7301;
+        data_850 = data_8501;
+    }
+
+
+
 }
+
