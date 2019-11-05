@@ -1,0 +1,31 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/layout_rounded">
+
+    <TextView
+        android:id="@+id/textViewD"
+        android:layout_width="270dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:background="#ffffff"
+        android:gravity="center_horizontal"
+        android:text="Settings: "
+        android:textColor="@android:color/black"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/filterSettingsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textViewD"
+        android:layout_centerHorizontal="true"
+        android:background="@android:color/transparent"
+        android:text="Filter Settings"
+        android:textColor="@color/colorAccent" />
+
+</RelativeLayout>
+

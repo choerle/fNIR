@@ -60,6 +60,7 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -67,6 +68,7 @@ import android.widget.ExpandableListView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.SimpleExpandableListAdapter;
+import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -117,6 +119,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private TextView dataField_850;
     private TextView timeField;
     private ProgressDialog baselineProgress;
+    private Button settingsButton;
 
     //Data variables
     private dataAnalysis mDataAnalysis;
@@ -129,10 +132,14 @@ public class DeviceControlActivity extends AppCompatActivity {
     private ArrayList<Double> HBO2; //Array for storing de-oxygenated hemoglobin values
     private double time = 0;  //Time when sample is taken
     public Integer count = 0; //Count of the number of samples taken
+    public Integer filterType = 0;
+    private Integer butterWorthOrder = 5;
+    private Double cutoffFrequency = .1;
 
     //Baseline and data collection constants
     private final int NUMBER_OF_BASELINE_SAMPLES = 10; //How many samples for the baseline test
     private int SAMPLING_RATE = 100; //Sample period in milliseconds
+
 
     //Graphing variables
     private GraphView dataGraph;
@@ -171,6 +178,14 @@ public class DeviceControlActivity extends AppCompatActivity {
         timeField = findViewById(R.id.timeField);
         dataField_730 = findViewById(R.id.data730);
         dataField_850 = findViewById(R.id.data850);
+        settingsButton = findViewById(R.id.settingsButton);
+
+        settingsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openSettings();
+            }
+        });
 
         //Requesting permission to write to the app's storage, for saving data
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -416,7 +431,8 @@ public class DeviceControlActivity extends AppCompatActivity {
             createBaselineProgress();
             state_filled_graphing = true;
             state_graphing = true;
-            mDataAnalysis = new dataAnalysis(HB, HBO2, data_730, data_850, NUMBER_OF_BASELINE_SAMPLES);   //Initializing class for data analysis based on previously collected samples
+            mDataAnalysis = new dataAnalysis(HB, HBO2, data_730, data_850, NUMBER_OF_BASELINE_SAMPLES,
+                    filterType, 1000/(new Double(SAMPLING_RATE)), butterWorthOrder, cutoffFrequency);   //Initializing class for data analysis based on previously collected samples
             invalidateOptionsMenu();
         }
 
@@ -532,6 +548,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                 //Adding the HB and HBO2 points to the graph
                 graphData(HB.get(count), series_HB);
                 graphData(HBO2.get(count), series_HBO2);
+                Log.d(TAG, "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
             }
 
             else{
@@ -1352,5 +1369,84 @@ public class DeviceControlActivity extends AppCompatActivity {
             mBluetoothLeService = null;
         }
         finish();
+    }
+
+
+
+    public void openSettings(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+        // Inflate and set the layout for the dialog
+        // Pass null as the parent view because its going in the dialog layout
+        View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.data_collection_settings, null, false);
+        builder.setView(v);
+
+        final AlertDialog dialog = builder.create();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        Button filterSettingsButton = v.findViewById(R.id.filterSettingsButton);
+
+        //On click, the button will save the data with the name entered, as long as a name is entered
+        filterSettingsButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                //filterSettingsDialog();
+                AlertDialog.Builder b = new AlertDialog.Builder(DeviceControlActivity.this);
+                b.setTitle("Filter Type");
+                String[] types = {"None", "FIR", "IIR"};
+                b.setItems(types, new DialogInterface.OnClickListener() {
+
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        filterType = which;
+                        dialog.dismiss();
+                    }
+
+                });
+
+                b.show();
+                //dialog.dismiss();
+            }
+        });
+
+        dialog.show();
+        dialog.getWindow().setLayout(1100, 500);
+    }
+
+    public void filterSettingsDialog(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+        View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.filter_settings, null, false);
+        builder.setView(v);
+
+        final AlertDialog dialog = builder.create();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        final Spinner filterTypeSpinner = findViewById(R.id.filterType);
+        //ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, "1,2,3");
+        //ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, "1");
+                //ArrayAdapter.createFromResource(this,
+                //R.array.filter_types, android.R.layout.simple_spinner_item);
+        //adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        //filterTypeSpinner.setAdapter(adapter);
+        filterTypeSpinner.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                filterType = position;
+            }
+        });
+
+        if(filterType == 0){
+
+        }
+
+        else if(filterType == 1){
+
+        }
+
+        else{
+
+        }
+        dialog.show();
+        dialog.getWindow().setLayout(1100, 500);
     }
 }

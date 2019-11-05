@@ -20,9 +20,7 @@ public class dataAnalysis {
     private final double eHBO2_850 = 1.058;
     private final double L = 0.015;
 
-    private final int filterLength = 5;
-    private final double[] coefficients = {.1,.1,.1,.1,.1,.1,.1,.1,.1,.1};
-    fir1 f;
+
 
 
     //Baseline values
@@ -40,7 +38,9 @@ public class dataAnalysis {
     private ArrayList<Double> data_850;
 
     private Butterworth butterworth;
+    private fir1 f;
 
+    private Integer filterTypes;
     private Double[] h = new Double[]{.1,.1,.1,.1,.1,.1,.1,.1,.1,.1};
 
     //Size of baseline sample
@@ -48,11 +48,21 @@ public class dataAnalysis {
 
 
     dataAnalysis(ArrayList<Double> HB1, ArrayList<Double> HBO21, ArrayList<Double> data_7301,
-                 ArrayList<Double> data_8501, double sampleCount1) {
+                 ArrayList<Double> data_8501, double sampleCount1, Integer filterType,
+                 Double sampleRate1, Integer order1, Double CutOffFrequency1) {
+
+        filterTypes = filterType;
+        Double[] coefficients = new Double[order1];
+
+        Double singleCoefficient = 1/(new Double(order1));
+        for(int i = 0; i < order1;  ++i){
+            coefficients[i] = singleCoefficient;
+        }
 
         f = new fir1(coefficients);
+
         butterworth = new Butterworth();
-        butterworth.lowPass(5,10,.1);
+        butterworth.lowPass(order1,sampleRate1,CutOffFrequency1);
 
         OD_730 = new ArrayList<>();
         OD_850 = new ArrayList<>();
@@ -97,15 +107,21 @@ public class dataAnalysis {
     //This sums up the previous filterLength samples, and then divides by filterLength to find the avergae of the last couple samples
     public void addSamplesToVoltageArray(Double data_730d, Double data_850d) {
 
-        data_730.add(new Double(butterworth.filter(data_730d.doubleValue())));
-
-        data_850.add(new Double(butterworth.filter(data_850d.doubleValue())));
-
-        //data_730.add(data_730d);
-        //data_850.add(data_850d);
-        //data_730.add(new Double(f.getOutputSample(data_730d.doubleValue())));
-
-        //data_850.add(new Double(f.getOutputSample(data_850d.doubleValue())));
+        //No filter
+        if(filterTypes == 0){
+            data_730.add(data_730d);
+            data_850.add(data_850d);
+        }
+        //FIR
+        else if(filterTypes == 1){
+            data_730.add(new Double(butterworth.filter(data_730d.doubleValue())));
+            data_850.add(new Double(butterworth.filter(data_850d.doubleValue())));
+        }
+        //IIR
+        else{
+            data_730.add(new Double(f.getOutputSample(data_730d.doubleValue())));
+            data_850.add(new Double(f.getOutputSample(data_850d.doubleValue())));
+        }
     }
 
 
@@ -115,8 +131,4 @@ public class dataAnalysis {
         data_730 = data_7301;
         data_850 = data_8501;
     }
-
-
-
 }
-

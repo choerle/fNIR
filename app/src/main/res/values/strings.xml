@@ -46,4 +46,10 @@
     <string name="link_one"><a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=4272296">1. What is fNIR?</a></string>
     <string name="link_four"><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4309034/">4. Brain Computer Index Using fNIR.</a></string>
 
+
+    <string-array name="filter_types">
+        <item>None</item>
+        <item>Simple FIR</item>
+        <item>Butterworth IIR</item>
+    </string-array>
 </resources>
