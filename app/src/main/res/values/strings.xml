@@ -52,4 +52,10 @@
         <item>Simple FIR</item>
         <item>Butterworth IIR</item>
     </string-array>
+    <string name="filter_help">
+        "   These settings will adjust the filter for the data that is collected. By default, no filter is used. However, users have two options for filters: an FIR and an IIR.
+        The FIR filter is a moving average filter. It simply averages a number of previous data samples with the current sample. The number of samples used in the averaging is determined by the filter order parameter, which is set to a defualt value of 5. This filter is very simple and quick, however, it is also very limited and does little besides smoothing the graph.
+        The IIR filter is a butterworth filter. This is a type of low pass , which removes any frequencies above the frequency cutoff parameter. There are several different cutoff frequencies possible, and each have different uses. For most purposes, a cutoff frequency of .1 Hz will work as this frequency is slightly greater than the time it takes for any hemodynamic changes. Therefore a lot of noise will be removed without affecting the data.
+        The IIR filter is a very powerful tool. For uses here, the default frequency does a good job of isolating the hemodynamic changes. However, this filter can also be used to determine heart rate or respiration rate by tweaking the parameters and adding a high pass filter. This application does not currently support this, but could easily be modified to do so.
+    </string>
 </resources>

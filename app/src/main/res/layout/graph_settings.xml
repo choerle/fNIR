@@ -1,0 +1,97 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/layout_rounded">
+
+
+    <TextView
+        android:id="@+id/textViewD"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="0dp"
+        android:layout_marginTop="15dp"
+        android:background="#ffffff"
+        android:gravity="center_horizontal"
+        android:text="Graph Settings"
+        android:textColor="@android:color/black"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TableLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_below="@+id/textViewD"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="15dp"
+        android:stretchColumns="*"
+        android:measureWithLargestChild="true">
+
+
+        <TableRow
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="5dp"
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/baselineSamplesTextView"
+                android:layout_width="50dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:text="Max Y"
+                android:textColor="@color/colorAccent"
+                android:textSize="17sp" />
+
+            <EditText
+                android:id="@+id/maxYEditText"
+                android:layout_width="30dp"
+                android:layout_height="wrap_content"
+                android:background="@android:color/background_light"
+                android:descendantFocusability="blocksDescendants"
+                android:ems="10"
+                android:gravity="right"
+                android:inputType="textPersonName|numberSigned"
+                android:textAlignment="gravity" />
+
+
+        </TableRow>
+
+        <TableRow
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="5dp"
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/minyTextView"
+                android:layout_width="50dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:text="Min Y"
+                android:textColor="@color/colorAccent"
+                android:textSize="17sp" />
+
+            <EditText
+                android:id="@+id/minYEditText"
+                android:layout_width="30dp"
+                android:layout_height="wrap_content"
+                android:background="@android:color/background_light"
+                android:descendantFocusability="blocksDescendants"
+                android:ems="10"
+                android:gravity="right"
+                android:inputType="textPersonName|numberSigned"
+                android:textAlignment="gravity" />
+
+        </TableRow>
+
+
+    </TableLayout>
+
+
+
+</RelativeLayout>

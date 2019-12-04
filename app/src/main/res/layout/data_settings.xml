@@ -1,10 +1,9 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:background="@drawable/layout_rounded">
-
 
     <ImageButton
         android:id="@+id/infoButton"
@@ -16,17 +15,18 @@
         app:srcCompat="@drawable/ic_howtouse"
         tools:background="@color/white" />
 
+
     <TextView
         android:id="@+id/textViewD"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
+        android:layout_marginBottom="0dp"
         android:layout_marginTop="15dp"
-        android:layout_weight="1"
         android:background="#ffffff"
-        android:text="Filter Settings"
-        android:textAllCaps="false"
+        android:gravity="center_horizontal"
+        android:text="Data Settings"
         android:textColor="@android:color/black"
         android:textSize="20sp"
         android:textStyle="bold" />
@@ -38,8 +38,8 @@
         android:layout_below="@+id/textViewD"
         android:layout_marginLeft="15dp"
         android:layout_marginRight="15dp"
-        android:measureWithLargestChild="true"
-        android:stretchColumns="*">
+        android:stretchColumns="*"
+        android:measureWithLargestChild="true">
 
 
         <TableRow
@@ -49,21 +49,15 @@
             android:layout_marginTop="5dp"
             android:layout_weight="1">
 
-            <TextView
-                android:id="@+id/textView2"
+            <Switch
+                android:id="@+id/analyzeDataSwitch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical"
-                android:text="Filter Type"
+                android:layout_span="2"
+                android:text="Analyze Data?"
                 android:textColor="@color/colorAccent"
+                android:layout_gravity="center_vertical"
                 android:textSize="17sp" />
-
-            <Spinner
-                android:id="@+id/filterType"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical" />
-
         </TableRow>
 
         <TableRow
@@ -74,16 +68,16 @@
             android:layout_weight="1">
 
             <TextView
-                android:id="@+id/filterOrderTextView"
+                android:id="@+id/baselineSamplesTextView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
-                android:text="Filter Order"
+                android:text="Baseline Size"
                 android:textColor="@color/colorAccent"
                 android:textSize="17sp" />
 
             <NumberPicker
-                android:id="@+id/filterOrderNumberPicker"
+                android:id="@+id/baselineSamplesNumberPicker"
                 android:layout_width="wrap_content"
                 android:layout_height="70dp"
                 android:descendantFocusability="blocksDescendants" />
@@ -99,17 +93,16 @@
             android:layout_weight="1">
 
             <TextView
-                android:id="@+id/cutoffFreqTextView"
+                android:id="@+id/samplingFreqTextView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
-                android:layout_marginRight="20dp"
-                android:text="Cutoff Frequency"
+                android:text="Sampling Frequency"
                 android:textColor="@color/colorAccent"
                 android:textSize="17sp" />
 
             <NumberPicker
-                android:id="@+id/cutoffFreqNumberPicker"
+                android:id="@+id/samplingFreqNumberPicker"
                 android:layout_width="wrap_content"
                 android:layout_height="70dp"
                 android:descendantFocusability="blocksDescendants" />
@@ -133,8 +126,8 @@
                 android:textSize="16sp" />
         </TableRow>
 
-
     </TableLayout>
+
 
 
 </RelativeLayout>

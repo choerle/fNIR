@@ -40,11 +40,8 @@
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".oldData"
+            android:name=".viewOldData"
             android:parentActivityName=".MainActivity"></activity>
-        <activity android:name=".viewOldData"
-            android:parentActivityName=".oldData">
-        </activity>
     </application>
 
 </manifest>

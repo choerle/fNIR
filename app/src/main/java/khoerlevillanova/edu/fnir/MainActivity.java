@@ -68,7 +68,7 @@ public class MainActivity extends AppCompatActivity  {
                 startActivity(i);
                 break;
             case R.id.load_data:
-                Intent j = new Intent(MainActivity.this, oldData.class);
+                Intent j = new Intent(MainActivity.this, viewOldData.class);
                 startActivity(j);
                 break;
             case R.id.settings:

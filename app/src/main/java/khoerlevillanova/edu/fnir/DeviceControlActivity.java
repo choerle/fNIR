@@ -35,8 +35,6 @@ Currently it is not possible to graph raw voltage values, only HB and HBO2 readi
 
 import android.Manifest;
 import android.app.ProgressDialog;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattService;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -55,7 +53,6 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -63,20 +60,20 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.ExpandableListView;
-import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.SimpleExpandableListAdapter;
+import android.widget.ImageButton;
+import android.widget.NumberPicker;
 import android.widget.Spinner;
-import android.widget.TableLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.jjoe64.graphview.GraphView;
-import com.jjoe64.graphview.GridLabelRenderer;
 import com.jjoe64.graphview.LegendRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
+import com.jjoe64.graphview.series.PointsGraphSeries;
+
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
@@ -87,9 +84,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.regex.Matcher;
@@ -99,7 +93,7 @@ import static android.os.Environment.DIRECTORY_DOCUMENTS;
 
 
 
-public class DeviceControlActivity extends AppCompatActivity {
+public class DeviceControlActivity extends AppCompatActivity{
 
 
     //Constants
@@ -119,7 +113,8 @@ public class DeviceControlActivity extends AppCompatActivity {
     private TextView dataField_850;
     private TextView timeField;
     private ProgressDialog baselineProgress;
-    private Button settingsButton;
+    private ImageButton settingsButton;
+    private Button addMarkerButton;
 
     //Data variables
     private dataAnalysis mDataAnalysis;
@@ -130,16 +125,15 @@ public class DeviceControlActivity extends AppCompatActivity {
     private ArrayList<Double> data_time; //Array for storing time when samples are taken
     private ArrayList<Double> HB; //Array for storing oxygenated hemoglobin values
     private ArrayList<Double> HBO2; //Array for storing de-oxygenated hemoglobin values
+    private ArrayList<Double> markerValueArray; //Array for storing oxygenated hemoglobin values
+    private ArrayList<Double> markerTimeArray; //Array for storing de-oxygenated hemoglobin values
     private double time = 0;  //Time when sample is taken
     public Integer count = 0; //Count of the number of samples taken
-    public Integer filterType = 0;
-    private Integer butterWorthOrder = 5;
-    private Double cutoffFrequency = .1;
-
-    //Baseline and data collection constants
-    private final int NUMBER_OF_BASELINE_SAMPLES = 10; //How many samples for the baseline test
+    public int filterType = 0;//The type of data filter used; 0 = no filter, 1 = fir, 2 = iir
+    private int filterOrder = 5;    //The order of the filter used
+    private double cutoffFrequency = .1;    //The cutoff frequency for the iir filter
+    private int NUMBER_OF_BASELINE_SAMPLES = 10; //How many samples for the baseline test
     private int SAMPLING_RATE = 100; //Sample period in milliseconds
-
 
     //Graphing variables
     private GraphView dataGraph;
@@ -147,6 +141,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     private LineGraphSeries<DataPoint> series_HBO2;
     private LineGraphSeries<DataPoint> series_730;
     private LineGraphSeries<DataPoint> series_850;
+    private PointsGraphSeries<DataPoint> series_Marker;
 
     //Bluetooth variables
     private String mDeviceName; //Sent from previous activity, name of Bluetooth Low Energy Device
@@ -173,17 +168,29 @@ public class DeviceControlActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_control);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setDisplayShowTitleEnabled(false);
 
         //User Interface variable initializations
         timeField = findViewById(R.id.timeField);
         dataField_730 = findViewById(R.id.data730);
         dataField_850 = findViewById(R.id.data850);
-        settingsButton = findViewById(R.id.settingsButton);
+        settingsButton = findViewById(R.id.settingsImageButton);
+        addMarkerButton = findViewById(R.id.addMarkerButton);
 
+        //Open the settings dialog
         settingsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 openSettings();
+            }
+        });
+
+        //Add a marker to the graph
+        addMarkerButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(state_graphing) addMarker();
+                else Toast.makeText(DeviceControlActivity.this, "You must be graphing in order to add a marker!", Toast.LENGTH_LONG).show();
             }
         });
 
@@ -203,6 +210,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
         Log.d(TAG, "Conncedted to: Name: " + mDeviceName + "   Address: " + mDeviceAddress);
 
+
         //Connecting to Bluetooth Low Energy services class, which manages the bluetooth connection
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
@@ -215,7 +223,7 @@ public class DeviceControlActivity extends AppCompatActivity {
     //Options menu
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.gatt_services, menu);
+        getMenuInflater().inflate(R.menu.devicecontroloptionmenu, menu);
 
         //Determining what buttons should be available when connected to a BLE device
         //The following options determine the buttons available when the device is in different states
@@ -226,7 +234,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //If the graph is empty and the app is not currently graphing
             if(!state_graphing && !state_filled_graphing){
                 menu.findItem(R.id.dataAnalysis).setVisible(true);
-                menu.findItem(R.id.dataVoltage).setVisible(true);
                 menu.findItem(R.id.stopData).setVisible(false);
                 menu.findItem(R.id.continueGraph).setVisible(false);
                 menu.findItem(R.id.saveData).setVisible(false);
@@ -236,7 +243,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //If currently graphing
             else if(state_graphing){
                 menu.findItem(R.id.dataAnalysis).setVisible(false);
-                menu.findItem(R.id.dataVoltage).setVisible(false);
                 menu.findItem(R.id.stopData).setVisible(true);
                 menu.findItem(R.id.continueGraph).setVisible(false);
                 menu.findItem(R.id.saveData).setVisible(false);
@@ -246,7 +252,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             //If the graph is filled but stopped
             else if(!state_graphing && state_filled_graphing){
                 menu.findItem(R.id.dataAnalysis).setVisible(true);
-                menu.findItem(R.id.dataVoltage).setVisible(true);
                 menu.findItem(R.id.stopData).setVisible(false);
                 menu.findItem(R.id.continueGraph).setVisible(true);
                 menu.findItem(R.id.saveData).setVisible(true);
@@ -260,7 +265,6 @@ public class DeviceControlActivity extends AppCompatActivity {
             menu.findItem(R.id.menu_connect).setVisible(true);
             menu.findItem(R.id.continueGraph).setVisible(false);
             menu.findItem(R.id.dataAnalysis).setVisible(false);
-            menu.findItem(R.id.dataVoltage).setVisible(false);
             menu.findItem(R.id.stopData).setVisible(false);
             menu.findItem(R.id.saveData).setVisible(false);
             menu.findItem(R.id.loadData).setVisible(true);
@@ -282,22 +286,12 @@ public class DeviceControlActivity extends AppCompatActivity {
 
                 return true;
 
-            //Begins collecting, analyzing, and graphing data
+            //Begin collecting and graphing data
             case R.id.dataAnalysis:
 
-                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Data Collection and Analysis");
-                initializeAnalyzedSeries();
-                state_analyze_data = true;
-                createBeginBaselineDialog();
-
-                return true;
-
-            //Begins collecting and graphing raw data
-            case R.id.dataVoltage:
-
                 Log.d(TAG, OPTIONSMENU_LOG_TAG + "Raw Data Collection");
-                initializeRawSeries();
-                state_analyze_data = false;
+                if(state_analyze_data) initializeAnalyzedSeries();
+                else initializeRawSeries();
                 createBeginBaselineDialog();
 
                 return true;
@@ -333,16 +327,6 @@ public class DeviceControlActivity extends AppCompatActivity {
 
                 Log.d(TAG, OPTIONSMENU_LOG_TAG + "Load Data");
                 mSavedFiles = new savedFiles();
-
-                return true;
-
-            //Return home
-            case R.id.returnTo:
-
-                Log.d(TAG, OPTIONSMENU_LOG_TAG + "Returning home");
-                Intent i = new Intent(DeviceControlActivity.this, MainActivity.class);
-                startActivity(i);
-                finish();
 
                 return true;
         }
@@ -432,7 +416,7 @@ public class DeviceControlActivity extends AppCompatActivity {
             state_filled_graphing = true;
             state_graphing = true;
             mDataAnalysis = new dataAnalysis(HB, HBO2, data_730, data_850, NUMBER_OF_BASELINE_SAMPLES,
-                    filterType, 1000/(new Double(SAMPLING_RATE)), butterWorthOrder, cutoffFrequency);   //Initializing class for data analysis based on previously collected samples
+                    filterType, 1000/(new Double(SAMPLING_RATE)), filterOrder, cutoffFrequency);   //Initializing class for data analysis based on previously collected samples
             invalidateOptionsMenu();
         }
 
@@ -548,7 +532,6 @@ public class DeviceControlActivity extends AppCompatActivity {
                 //Adding the HB and HBO2 points to the graph
                 graphData(HB.get(count), series_HB);
                 graphData(HBO2.get(count), series_HBO2);
-                Log.d(TAG, "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
             }
 
             else{
@@ -623,6 +606,14 @@ public class DeviceControlActivity extends AppCompatActivity {
                 stringBuilder.append(HB);
                 stringBuilder.append(HBO2);
                 stringBuilder.append(data_time);
+                if(markerTimeArray != null && markerTimeArray.size() > 0 ){
+                    stringBuilder.append(markerTimeArray);
+                    stringBuilder.append(markerValueArray);
+                    //How much "extra data" (markers and data type charatcter) are added to the string
+                    Double extra = markerValueArray.size()*2.0+2;
+                    stringBuilder.append(extra.toString());
+                }
+                else stringBuilder.append("-1.0");
                 //The last character determines if the data is voltages or HB and HBO2
                 stringBuilder.append("-1.0");
             }
@@ -631,10 +622,19 @@ public class DeviceControlActivity extends AppCompatActivity {
                 stringBuilder.append(data_730);
                 stringBuilder.append(data_850);
                 stringBuilder.append(data_time);
+                if(markerTimeArray.size() > 0 ){
+                    stringBuilder.append(markerTimeArray);
+                    stringBuilder.append(markerValueArray);
+                    //How much "extra data" (markers and data type charatcter) are added to the string
+                    Double extra = markerValueArray.size()*2.0+2;
+                    stringBuilder.append(extra.toString());
+                }
+                else stringBuilder.append("-1.0");
                 stringBuilder.append("-2.0");
             }
 
             saved_data = stringBuilder.toString();
+            Log.d(TAG, "Data to be saved: " + saved_data);
             createTextFile();
         }
 
@@ -771,7 +771,12 @@ public class DeviceControlActivity extends AppCompatActivity {
         ArrayList<Double> saved_data_one = new ArrayList<>();
         ArrayList<Double> saved_data_two = new ArrayList<>();
         ArrayList<Double> savedTime = new ArrayList<>();
+        ArrayList<Double> savedMarkerValues = new ArrayList<>();
+        ArrayList<Double> savedMarkerTime = new ArrayList<>();
+        //Is the data is raw or analyzed?
         boolean data_analysis;
+        //How many extra number were attatched to the end of the saved data?
+        Double numberOfExtraDataPoints;
 
 
         //Constructor displays all saved files and when one is clicked loads that file into the graph
@@ -837,6 +842,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                                 builderDelete.show();
 
 
+
                             }
                         });
                         builderInner.show();
@@ -896,6 +902,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         }//TODO: switch graph colors on original graph
 
 
+        //Delete the selected file
         public boolean deleteFile(){
             File extStore = getPublicAlbumStorageDir(DIRECTORY_NAME);   //Creating the directory, within external storage, to hold this apps files
             String path = extStore.getAbsolutePath() + "/" + fileName;  //The address of the file we are creating
@@ -921,18 +928,45 @@ public class DeviceControlActivity extends AppCompatActivity {
             return file;
         }
 
+
         //Splitting up the input array into an array for time, HB, and HBO2
         //The last character of the file is 1 if the data is HB and HBO2 and 0 if raw voltages
-        public void splitArrayList (ArrayList<Double> inputData) {
-            int size = (inputData.size()-1) / 3;
+        public void splitArrayList(ArrayList<Double> inputData) {
 
-            if(inputData.get(inputData.size()-1) == -1.0){
+            Log.d(TAG, "Loading data: " + inputData.toString());
+
+            //The last number in the file determines if the data is raw or not
+            //If it is -1, then the data is analyzed (HB and HBO2)
+            //If it is not -1, then the data is raw
+            if (inputData.get(inputData.size() - 1) == -1.0) {
                 data_analysis = true;
-            }
-            else{
+            } else {
                 data_analysis = false;
             }
 
+            //The second to last number determines how many numbers were added to the end of the saved data
+            //-1 indicates no markers and therefore just 2 extra numbers were added
+            numberOfExtraDataPoints = inputData.get(inputData.size() - 2);
+
+            //Find the size of an array of data (the time or data arrays, both are the same size)
+            int size;
+            //If there are no markers
+            if(numberOfExtraDataPoints == -1) {
+                size = (inputData.size()-2) / 3;
+                Log.d(TAG, "Size (without marker): " + size);
+            }
+            //If there are markers
+            else{
+                //Size of each of the three arrays
+                size = (inputData.size() - (int) Math.round(numberOfExtraDataPoints)) / 3;
+                Log.d(TAG, "Size (with marker): " + size);
+                for (int i = inputData.size() - (int) Math.round(numberOfExtraDataPoints); i < inputData.size() - 2; i = i + 2) {
+                    savedMarkerTime.add(inputData.get(i));
+                    savedMarkerValues.add(inputData.get(i + 1));
+                }
+            }
+
+            //Create arrays from the time and the 2 data arrays
             for (int i = 0; i < 3; ++i) {
                 for (int j = 0; j < size; ++j) {
                     //Elements j to size
@@ -953,6 +987,20 @@ public class DeviceControlActivity extends AppCompatActivity {
             //Old series must be removed from the graph
             dataGraph.removeAllSeries();
 
+            //If there are markers
+            if(numberOfExtraDataPoints != -1) {
+                //Adding the markers to the graph
+                series_Marker = new PointsGraphSeries<>();
+                series_Marker.setColor(Color.BLACK);
+                dataGraph.addSeries(series_Marker);
+                series_Marker.setTitle("Markers");
+                series_Marker.setShape(PointsGraphSeries.Shape.POINT);
+                for (int i = 0; i < savedMarkerValues.size(); ++i) {
+                    DataPoint dataPoint = new DataPoint(savedMarkerTime.get(i), savedMarkerValues.get(i));
+                    series_Marker.appendData(dataPoint, true, 50000);
+                }
+            }
+
             //Graphing HB and HBO2
             if(data_analysis) {
 
@@ -968,6 +1016,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                 dataGraph.addSeries(series_HBO2);
                 series_HBO2.setTitle("Oxygenated");
 
+                //Used to determine the largest and smallest numbers in the data set
                 Double smallest = 10000.0;
                 Double largest = 0.0;
 
@@ -1181,6 +1230,8 @@ public class DeviceControlActivity extends AppCompatActivity {
         data_time = new ArrayList<>();
         HB = new ArrayList<>();
         HBO2 = new ArrayList<>();
+        markerTimeArray = new ArrayList<>();
+        markerValueArray = new ArrayList<>();
 
         //Deoxygenated hemoglobin series initialization
         series_HB = new LineGraphSeries<>();
@@ -1193,6 +1244,12 @@ public class DeviceControlActivity extends AppCompatActivity {
         series_HBO2.setColor(Color.RED);
         dataGraph.addSeries(series_HBO2);
         series_HBO2.setTitle("Deoxygenated");
+
+        series_Marker = new PointsGraphSeries<>();
+        series_Marker.setColor(Color.BLACK);
+        dataGraph.addSeries(series_Marker);
+        series_Marker.setTitle("Markers");
+        series_Marker.setShape(PointsGraphSeries.Shape.POINT);
 
         //Setting up the graph for analyzed data
         dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Hemodynamic Changes");
@@ -1227,6 +1284,8 @@ public class DeviceControlActivity extends AppCompatActivity {
         data_time = new ArrayList<>();
         HB = new ArrayList<>();
         HBO2 = new ArrayList<>();
+        markerTimeArray = new ArrayList<>();
+        markerValueArray = new ArrayList<>();
 
         //Deoxygenated hemoglobin series initialization
         series_730 = new LineGraphSeries<>();
@@ -1240,6 +1299,12 @@ public class DeviceControlActivity extends AppCompatActivity {
         dataGraph.addSeries(series_850);
         series_850.setTitle("850 nm");
 
+        series_Marker = new PointsGraphSeries<>();
+        series_Marker.setColor(Color.BLACK);
+        dataGraph.addSeries(series_Marker);
+        series_Marker.setTitle("Markers");
+        series_Marker.setShape(PointsGraphSeries.Shape.POINT);
+
         //Setting up the graph for raw data
         dataGraph.getGridLabelRenderer().setVerticalAxisTitle("Voltage");//TODO: what is the y axis?
         dataGraph.setTitle("Light Sensor Data");
@@ -1251,7 +1316,7 @@ public class DeviceControlActivity extends AppCompatActivity {
         dataGraph.getLegendRenderer().setSpacing(40);
         dataGraph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.BOTTOM);
         dataGraph.getViewport().setMinY(0);
-        dataGraph.getViewport().setMaxY(2000);
+        dataGraph.getViewport().setMaxY(3000);
     }
 
 
@@ -1308,6 +1373,7 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //Basic graph set up
     public void setUpGraph(){
         dataGraph.getViewport().setYAxisBoundsManual(true);
         dataGraph.getViewport().setMinY(-20);
@@ -1330,6 +1396,28 @@ public class DeviceControlActivity extends AppCompatActivity {
 
 
 
+    //This function is called when the add marker button is clicked
+    //It adds a black dot to the graph at the location of current time and data
+    //It also adds this data point to the array list for markerValues and MarkerTimes
+    public void addMarker(){
+        DataPoint dataPoint;
+        if(state_analyze_data){
+            markerTimeArray.add(time);
+            markerValueArray.add(HB.get(count-1));
+            dataPoint = new DataPoint(time, HB.get(count-1));
+        }
+        else{
+            markerTimeArray.add(time);
+            markerValueArray.add(data_730.get(count-1));
+            dataPoint = new DataPoint(time, data_730.get(count-1));
+        }
+        series_Marker.appendData(dataPoint, true,50000);
+    }
+
+
+
+
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -1337,18 +1425,12 @@ public class DeviceControlActivity extends AppCompatActivity {
         endActivity();
     }
 
-
-
-
     @Override
     protected void onPause() {
         super.onPause();
         Log.d(TAG, "ON PAUSE CALLED");
         endActivity();
     }
-    //TODO: destroy connection when this activity is closed
-
-
 
     //When the back button is pressed
     @Override
@@ -1368,51 +1450,70 @@ public class DeviceControlActivity extends AppCompatActivity {
             unbindService(mServiceConnection);
             mBluetoothLeService = null;
         }
+        state_graphing = false;
+        state_connected = false;
+        state_filled_graphing = false;
+
         finish();
     }
 
 
 
+
+
+
+    //This function is called when the settings button at the bottom of the screen is clicked
+    //It opens a custom dialog that has several options to adjust different settings
     public void openSettings(){
         AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
 
-        // Inflate and set the layout for the dialog
-        // Pass null as the parent view because its going in the dialog layout
-        View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.data_collection_settings, null, false);
+        // Inflate and set the custom layout for the dialog
+        View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.settings_dialog, null, false);
         builder.setView(v);
 
         final AlertDialog dialog = builder.create();
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
-        Button filterSettingsButton = v.findViewById(R.id.filterSettingsButton);
+        //Button to open settings for data collection
+        Button dataSettingsButton = v.findViewById(R.id.dataSettingsButton);
+        dataSettingsButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                dataSettingsDialog();
+            }
+        });
 
-        //On click, the button will save the data with the name entered, as long as a name is entered
+        //Button to open settings for adjusting the filter
+        Button filterSettingsButton = v.findViewById(R.id.filterSettingsButton);
         filterSettingsButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                //filterSettingsDialog();
-                AlertDialog.Builder b = new AlertDialog.Builder(DeviceControlActivity.this);
-                b.setTitle("Filter Type");
-                String[] types = {"None", "FIR", "IIR"};
-                b.setItems(types, new DialogInterface.OnClickListener() {
+                filterSettingsDialog();
+            }
+        });
 
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        filterType = which;
-                        dialog.dismiss();
-                    }
+        //Button to open settings for the graph
+        Button graphSettingsButton = v.findViewById(R.id.graphSettings);
+        graphSettingsButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                graphSettingsDialog();
+            }
+        });
 
-                });
-
-                b.show();
-                //dialog.dismiss();
+        //Cancel the dialog
+        Button cancelButton = v.findViewById(R.id.cancelButton);
+        cancelButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                dialog.dismiss();
             }
         });
 
         dialog.show();
-        dialog.getWindow().setLayout(1100, 500);
     }
 
+
+    //This is called from the settings dialog
+    //This function opens up a dialog to adjust the settings of the filter
     public void filterSettingsDialog(){
+
         AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
 
         View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.filter_settings, null, false);
@@ -1421,32 +1522,212 @@ public class DeviceControlActivity extends AppCompatActivity {
         final AlertDialog dialog = builder.create();
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
-        final Spinner filterTypeSpinner = findViewById(R.id.filterType);
-        //ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, "1,2,3");
-        //ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, "1");
-                //ArrayAdapter.createFromResource(this,
-                //R.array.filter_types, android.R.layout.simple_spinner_item);
-        //adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        //filterTypeSpinner.setAdapter(adapter);
-        filterTypeSpinner.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        //A spinner to determine which type of filter to use
+        //0 = no filter, 1 = fir, 2 = iir
+        Spinner filterTypeSpinner = v.findViewById(R.id.filterType);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, R.array.filter_types, android.R.layout.simple_spinner_item);
+        filterTypeSpinner.setAdapter(adapter);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        filterTypeSpinner.setSelection(filterType);
+        filterTypeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 filterType = position;
+                Log.d(TAG, "Selected filter: " + filterType);
+            }
+            public void onNothingSelected(AdapterView<?> parent) {
             }
         });
 
-        if(filterType == 0){
+        //A number picker to determine the filter order
+        NumberPicker filterOrderNumberPicker = v.findViewById(R.id.filterOrderNumberPicker);
+        filterOrderNumberPicker.setMaxValue(9);
+        filterOrderNumberPicker.setMinValue(1);
+        filterOrderNumberPicker.setValue(filterOrder);
+        filterOrderNumberPicker.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
+            @Override
+            public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
+                filterOrder = newVal;
+                Log.d(TAG, "Selected filter order: " + filterOrder);
+            }
+        });
 
+        //A number picker to determine the cutoff frequency of the iir filter
+        NumberPicker cutoffFreqNumberPicker = v.findViewById(R.id.cutoffFreqNumberPicker);
+        cutoffFreqNumberPicker.setMaxValue(4);
+        cutoffFreqNumberPicker.setMinValue(1);
+        String[] freqOptions = new String[]{".1 Hz", ".25 Hz", "1 Hz", "10 Hz"};
+        cutoffFreqNumberPicker.setDisplayedValues(freqOptions);
+        int currentCutoffFreq;
+        if(cutoffFrequency == .1){
+            currentCutoffFreq = 1;
         }
-
-        else if(filterType == 1){
-
+        else if(cutoffFrequency == .25){
+            currentCutoffFreq = 2;
         }
-
+        else if(cutoffFrequency == 1){
+            currentCutoffFreq = 3;
+        }
         else{
-
+            currentCutoffFreq = 4;
         }
+        cutoffFreqNumberPicker.setValue(currentCutoffFreq);
+        cutoffFreqNumberPicker.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
+            @Override
+            public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
+                switch (newVal){
+                    case 1:
+                        cutoffFrequency = .1;
+                    case 2:
+                        cutoffFrequency = .25;
+                    case 3:
+                        cutoffFrequency = 1.0;
+                    case 4:
+                        cutoffFrequency = 10.0;
+                    default:
+                        cutoffFrequency = .1;
+                }
+            }
+        });
+
+        //A button to open up a dialog explaining the filter settings and what they do
+        ImageButton infoButton = v.findViewById(R.id.infoButton);
+        infoButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog.Builder builder1 = new AlertDialog.Builder(DeviceControlActivity.this);
+                View v1 = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.info_dialog, null, false);
+                builder1.setView(v1);
+                final AlertDialog dialog1 = builder1.create();
+                dialog1.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                dialog1.show();
+            }
+        });
+
+        //A button to close the dialog
+        Button okButton = v.findViewById(R.id.okButton);
+        okButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+
         dialog.show();
-        dialog.getWindow().setLayout(1100, 500);
+    }
+
+
+    //Opened from the settings dialog
+    //This function adjusts the graph's display settings
+    public void graphSettingsDialog(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+        View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.graph_settings, null, false);
+        builder.setView(v);
+
+        final AlertDialog dialog = builder.create();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+
+
+
+        dialog.show();
+    }
+
+
+    //Opened from the settings dialog
+    //This function adjusts the data collection settings
+    public void dataSettingsDialog(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(DeviceControlActivity.this);
+
+        View v = LayoutInflater.from(DeviceControlActivity.this).inflate(R.layout.data_settings, null, false);
+        builder.setView(v);
+
+        final AlertDialog dialog = builder.create();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        //A swtich to change from graphing raw data to graphing HB and HBO2
+        final Switch analyzeDataSwitch = v.findViewById(R.id.analyzeDataSwitch);
+        if(state_analyze_data == true) analyzeDataSwitch.setChecked(true);
+        else analyzeDataSwitch.setChecked(false);
+        if(!state_graphing) {
+            analyzeDataSwitch.setEnabled(true);
+            analyzeDataSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    if (isChecked) state_analyze_data = true;
+                    else state_analyze_data = false;
+                }
+            });
+        }
+        else{
+            analyzeDataSwitch.setEnabled(false);
+        }
+
+        //A number picker to determine the baseline size
+        NumberPicker samplesNumberPicker = v.findViewById(R.id.baselineSamplesNumberPicker);
+        samplesNumberPicker.setMaxValue(20);
+        samplesNumberPicker.setMinValue(1);
+        samplesNumberPicker.setValue(NUMBER_OF_BASELINE_SAMPLES);
+        samplesNumberPicker.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
+            @Override
+            public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
+                NUMBER_OF_BASELINE_SAMPLES = newVal;
+                Log.d(TAG, "NUMBER OF BASELINE SAMPLES CHANGED TO " + NUMBER_OF_BASELINE_SAMPLES);
+            }
+        });
+
+        //A number picker to determine the sampling frequency
+        NumberPicker samplingFreqNumberPicker = v.findViewById(R.id.samplingFreqNumberPicker);
+        samplingFreqNumberPicker.setMaxValue(4);
+        samplingFreqNumberPicker.setMinValue(1);
+        String[] freqOptions = new String[]{"1 Hz", "5 Hz", "10 Hz", "20 Hz"};
+        samplingFreqNumberPicker.setDisplayedValues(freqOptions);
+        int currentSamplingFreq;
+        if(SAMPLING_RATE == 1000){
+            currentSamplingFreq = 1;
+        }
+        else if(SAMPLING_RATE == 500){
+            currentSamplingFreq = 2;
+        }
+        else if(SAMPLING_RATE == 100) {
+            currentSamplingFreq = 3;
+        }
+        else{
+            currentSamplingFreq = 4;
+        }
+        samplingFreqNumberPicker.setValue(currentSamplingFreq);
+        samplingFreqNumberPicker.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
+            @Override
+            public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
+                switch (newVal){
+                    case 1:
+                        SAMPLING_RATE = 1000;
+                        Log.d(TAG, "SAMPLING RATE CHANGED TO " + SAMPLING_RATE);
+                    case 2:
+                        SAMPLING_RATE = 500;
+                        Log.d(TAG, "SAMPLING RATE CHANGED TO " + SAMPLING_RATE);
+                    case 3:
+                        SAMPLING_RATE = 100;
+                        Log.d(TAG, "SAMPLING RATE CHANGED TO " + SAMPLING_RATE);
+                    case 4:
+                        SAMPLING_RATE = 50;
+                    default:
+                        SAMPLING_RATE = 100;
+                        Log.d(TAG, "SAMPLING RATE CHANGED TO " + SAMPLING_RATE);
+                }
+            }
+        });
+
+        //Closes the dialog
+        Button okButton = v.findViewById(R.id.okButton);
+        okButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+
+        dialog.show();
     }
 }

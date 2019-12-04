@@ -201,6 +201,7 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
 
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
+            Log.d(TAG, "RESULT " + result.toString());
             addScanResult(result);
         }
 
@@ -222,6 +223,8 @@ public class DeviceScanActivity extends AppCompatActivity implements AdapterView
             //New bluetooth device
             BluetoothDevice device = result.getDevice();
             String deviceAddress = device.getAddress();
+
+            Log.d(TAG, "RESULT " + device.getName());
 
             for (String key : mScanResults.keySet()) {
                 if(key.equals(deviceAddress))

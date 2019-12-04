@@ -1,15 +1,25 @@
 package khoerlevillanova.edu.fnir;
 
+import android.util.Log;
+
+import java.util.ArrayList;
+
 public class fir1 {
         private int length;
-	    private Double[] delayLine;
-	    private Double[] impulseResponse;
+	    private double[] delayLine;
+	    private double[] impulseResponse;
+		private double[] coefs;
 	    private int count = 0;
 
-	    fir1(Double[] coefs) {
-        	        length = coefs.length;
-        	        impulseResponse = coefs;
-        	        delayLine = new Double[length];
+	    fir1(int filterorder) {
+            length = filterorder;
+            coefs = new double[length];
+			double singleCoefficient = 1.0/(length);
+			for(int i = 0; i < length;  ++i){
+				coefs[i] = singleCoefficient;
+			}
+			impulseResponse = coefs;
+			delayLine = new double[length];
         }
 
 	    double getOutputSample(Double inputSample) {

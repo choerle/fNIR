@@ -1,5 +1,7 @@
 package khoerlevillanova.edu.fnir;
 
+import android.util.Log;
+
 import java.util.ArrayList;
 //import khoerlevillanova.edu.fnir.
 import uk.me.berndporr.iirj.Butterworth;
@@ -37,32 +39,29 @@ public class dataAnalysis {
     private ArrayList<Double> data_730;
     private ArrayList<Double> data_850;
 
+    // Filters
     private Butterworth butterworth;
     private fir1 f;
-
     private Integer filterTypes;
-    private Double[] h = new Double[]{.1,.1,.1,.1,.1,.1,.1,.1,.1,.1};
+
+
+    //private Double[] h = new Double[]{.1,.1,.1,.1,.1,.1,.1,.1,.1,.1};
 
     //Size of baseline sample
     double sampleCount;
 
 
     dataAnalysis(ArrayList<Double> HB1, ArrayList<Double> HBO21, ArrayList<Double> data_7301,
-                 ArrayList<Double> data_8501, double sampleCount1, Integer filterType,
-                 Double sampleRate1, Integer order1, Double CutOffFrequency1) {
+                 ArrayList<Double> data_8501, double sampleCount1, int filterType1,
+                 Double sampleRate, int filterorder, double CutOffFrequency) {
 
-        filterTypes = filterType;
-        Double[] coefficients = new Double[order1];
+        Log.d("DATA ANALYSIS", "    FilterType: " + filterType1+ "  FilterOrder: " + filterorder + "    Cutoff Freq: " + CutOffFrequency);
+        filterTypes = filterType1;
 
-        Double singleCoefficient = 1/(new Double(order1));
-        for(int i = 0; i < order1;  ++i){
-            coefficients[i] = singleCoefficient;
-        }
-
-        f = new fir1(coefficients);
+        f = new fir1(filterorder);
 
         butterworth = new Butterworth();
-        butterworth.lowPass(order1,sampleRate1,CutOffFrequency1);
+        butterworth.lowPass(filterorder,sampleRate,CutOffFrequency);
 
         OD_730 = new ArrayList<>();
         OD_850 = new ArrayList<>();
@@ -114,13 +113,13 @@ public class dataAnalysis {
         }
         //FIR
         else if(filterTypes == 1){
-            data_730.add(new Double(butterworth.filter(data_730d.doubleValue())));
-            data_850.add(new Double(butterworth.filter(data_850d.doubleValue())));
+            data_730.add(f.getOutputSample(data_730d.doubleValue()));
+            data_850.add(f.getOutputSample(data_850d.doubleValue()));
         }
         //IIR
         else{
-            data_730.add(new Double(f.getOutputSample(data_730d.doubleValue())));
-            data_850.add(new Double(f.getOutputSample(data_850d.doubleValue())));
+            data_730.add(butterworth.filter(data_730d.doubleValue()));
+            data_850.add(butterworth.filter(data_850d.doubleValue()));
         }
     }
 

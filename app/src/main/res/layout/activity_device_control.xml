@@ -11,7 +11,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_margin="0dp"
-        android:layout_marginStart="36dp"
         android:background="@drawable/background2"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -38,7 +37,7 @@
 
         <TableLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:layout_below="@+id/timeField"
             android:stretchColumns="1">
@@ -97,12 +96,29 @@
         </TableLayout>
 
         <Button
-            android:id="@+id/settingsButton"
+            android:id="@+id/addMarkerButton"
+            android:layout_width="113dp"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/timeField"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="30dp"
+            android:background="@null"
+            android:drawableTop="@android:drawable/btn_radio"
+            android:text="Add Marker"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/settingsImageButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
-            android:text="Settings" />
+            android:layout_marginBottom="2dp"
+            android:background="@null"
+            app:srcCompat="@drawable/ssss" />
+
 
     </RelativeLayout>
 
