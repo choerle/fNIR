@@ -44,9 +44,6 @@ public class dataAnalysis {
     private fir1 f;
     private Integer filterTypes;
 
-
-    //private Double[] h = new Double[]{.1,.1,.1,.1,.1,.1,.1,.1,.1,.1};
-
     //Size of baseline sample
     double sampleCount;
 

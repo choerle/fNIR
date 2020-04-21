@@ -9,11 +9,10 @@ connected, there is an option menu to chose what to do with the device:
 1. Connect
     Reconnects to BLE device that was selected on previous page if connection is lost
 2. Data Analysis
-    This is the main function of this class that recieves data from the BLE device and plots and analyses
-    that data.
-    First, this button calls the function "createBaselineDialog" which gives the user the option to begin.
+    This is the main function of this class that recieves data from the BLE device and plots it.
+    Clicking this button calls the function "createBaselineDialog" which gives the user the option to begin.
     After clicking yes, the getDataClass is initialized, which then starts a short baseline test. After this test is
-    complete, the class will begin analysing and plotting data received from the BLE device.
+    complete, the class will begin plotting data received from the BLE device.
     If this button is clicked when the app is in the process of plotting, or if the graph is paused with data
     still on it, this will reset the graph and data and start a new getDataColletion class.
 3. Stop Data Collection
@@ -29,7 +28,11 @@ connected, there is an option menu to chose what to do with the device:
     //TODO: comparing data?
     Loads previously saved data samples
 
-Currently it is not possible to graph raw voltage values, only HB and HBO2 readings
+
+
+There is also a settings dialog that appears when you click the little settings button at the bottom of this page.
+This open up a dialog that allows the user to adjust various settings, such as wether to graph the raw data or graph HB
+and HB02 readings.
  */
 
 
@@ -108,7 +111,7 @@ public class DeviceControlActivity extends AppCompatActivity{
     public static final String LOADINGDATA_LOG_TAG = "LOADING DATA:   ";
     public static final String OPTIONSMENU_LOG_TAG = "User Selected:   ";
 
-    //User Interface Variables variables
+    //User Interface
     private TextView dataField_730;
     private TextView dataField_850;
     private TextView timeField;
@@ -133,6 +136,7 @@ public class DeviceControlActivity extends AppCompatActivity{
     private int filterOrder = 5;    //The order of the filter used
     private double cutoffFrequency = .1;    //The cutoff frequency for the iir filter
     private int NUMBER_OF_BASELINE_SAMPLES = 10; //How many samples for the baseline test
+    private int TEMP_NUMBER_OF_BASELINE_SAMPLES = 10; //Used to note a change in settings if settings are changed while a graph is active
     private int SAMPLING_RATE = 100; //Sample period in milliseconds
 
     //Graphing variables
@@ -153,6 +157,7 @@ public class DeviceControlActivity extends AppCompatActivity{
     public static boolean state_graphing = false; //If the application is actively updating the graph, this is true
     public static boolean state_filled_graphing = false; //If there is data on the graph, this is true
     public static boolean state_analyze_data = false; //If the raw data is being converted to HB and HBO2 before graphing
+    public static boolean temp_state_analyze_data = false; //Used to note a change in settings if settings are changed while a graph is active
 
     //Class that allows users to save samples of the current test
     public saveData mSaveData;
@@ -290,6 +295,8 @@ public class DeviceControlActivity extends AppCompatActivity{
             case R.id.dataAnalysis:
 
                 Log.d(TAG, OPTIONSMENU_LOG_TAG + "Raw Data Collection");
+                NUMBER_OF_BASELINE_SAMPLES = TEMP_NUMBER_OF_BASELINE_SAMPLES;
+                state_analyze_data = temp_state_analyze_data;
                 if(state_analyze_data) initializeAnalyzedSeries();
                 else initializeRawSeries();
                 createBeginBaselineDialog();
@@ -358,7 +365,7 @@ public class DeviceControlActivity extends AppCompatActivity{
             }
         });
 
-        builder.setMessage("In order to begin data collection, a five second baseline test must be collected.")
+        builder.setMessage("In order to begin data collection, a short baseline test must be collected.")
                 .setTitle("Baseline Test Required");
         builder.setCancelable(false);
         AlertDialog dialog = builder.create();
@@ -368,6 +375,7 @@ public class DeviceControlActivity extends AppCompatActivity{
 
     //Sets up the progress bar for showing how much of the baseline test is complete
     public void createBaselineProgress(){
+
         baselineProgress = new ProgressDialog(this);
         baselineProgress.setTitle("Creating Baseline...");
         baselineProgress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
@@ -381,6 +389,7 @@ public class DeviceControlActivity extends AppCompatActivity{
     //This is only used once in this program, and that is the case when the user connects to a BLE device
     //and clicks begin baseline test, but the BLE device does not send any data
     public void dismissBaselineProgress(){
+
         if(baselineProgress != null){
             baselineProgress.dismiss();
         }
@@ -474,7 +483,7 @@ public class DeviceControlActivity extends AppCompatActivity{
         private void getBaseline() {
 
             //Getting sampleCount samples from BLE device
-            if (count < NUMBER_OF_BASELINE_SAMPLES && gettingBaseline) {
+            if ((count < NUMBER_OF_BASELINE_SAMPLES) && gettingBaseline) {
 
                 //Performs simple filter and adds samples to respective Array Lists
                 mDataAnalysis.addSamplesToVoltageArray(data_730_d, data_850_d);
@@ -487,30 +496,46 @@ public class DeviceControlActivity extends AppCompatActivity{
 
 
             //After getting enough data samples for the baseline, create the baseline array
-            else if (count == NUMBER_OF_BASELINE_SAMPLES && gettingBaseline) {
+            else if ((count == NUMBER_OF_BASELINE_SAMPLES) && gettingBaseline) {
 
-                baselineProgress.dismiss();
-                Log.d(TAG, DATACOLLECTION_LOG_TAG + "Baseline complete.");
-                mDataAnalysis.getBaseLine();
+                // If a baseline was collected
+                if(NUMBER_OF_BASELINE_SAMPLES > 0) {
+                    baselineProgress.dismiss();
+                    Log.d(TAG, DATACOLLECTION_LOG_TAG + "Baseline complete.");
+                    mDataAnalysis.getBaseLine();
 
-                //Once the baseline is complete, reset the arrays and count
-                count = 0;
-                data_730 = new ArrayList<>();
-                data_850 = new ArrayList<>();
+                    //Once the baseline is complete, reset the arrays and count
+                    count = 0;
+                    data_730 = new ArrayList<>();
+                    data_850 = new ArrayList<>();
 
-                //Since the arrays were reset, they must be reassigned in the Data Anlysis class
-                mDataAnalysis.reassign(data_730, data_850);
+                    //Since the arrays were reset, they must be reassigned in the Data Anlysis class
+                    mDataAnalysis.reassign(data_730, data_850);
 
-                //Adding the first sample to the new arrays
-                //mDataAnalysis.addSamplesToVoltageArray(data_730_d, data_850_d);
-
-                gettingBaseline = false;    //When gettingBaseline is set to false, the run method will stop
+                    gettingBaseline = false;    //When gettingBaseline is set to false, the run method will stop
                     //the baseline, and begin data collection and graphing
+                }
+
+                // TODO: test with no baseline, currently does not work
+                // If no baseline was collected
+                else{
+                    baselineProgress.dismiss();
+                    count = 0;
+                    data_730 = new ArrayList<>();
+                    data_850 = new ArrayList<>();
+
+                    //Since the arrays were reset, they must be reassigned in the Data Anlysis class
+                    mDataAnalysis.reassign(data_730, data_850);
+                    gettingBaseline = false;
+
+                }
+
             }
         }
 
 
-        //Every time a new data sample is collected, this function converts the raw data into Hb and HBO2 values and graphs them
+        //Every time a new data sample is collected, this function converts the raw data into Hb and HBO2 values and graphs
+        //either the raw values or the HB/HB02 values
         //Only used after the baseline test is finished
         public void getData() {
 
@@ -518,17 +543,16 @@ public class DeviceControlActivity extends AppCompatActivity{
             time = ((double) count) * SAMPLING_RATE / 1000;
             //Performs simple filter and adds samples to respective Array Lists
             mDataAnalysis.addSamplesToVoltageArray(data_730_d, data_850_d);
-            //time = time - ((double) NUMBER_OF_BASELINE_SAMPLES) * SAMPLING_RATE / 1000;
 
             //Adding new time value to time array
             data_time.add(time);
             Log.d(TAG, DATACOLLECTION_LOG_TAG + "Count: " + count + "\n\n Data: " + data_730.get(count) + "\n\nData: " + data_850.get(count));
 
             //Converting the 2 voltage readings into oxygenation readings and add to respective arrays
-            mDataAnalysis.addHemoglobin(count);
+            //Make sure there was a baseline test collected, if not you cant get hb and hbo2 data
+            if(NUMBER_OF_BASELINE_SAMPLES > 0) mDataAnalysis.addHemoglobin(count);
 
-            if(state_analyze_data){
-
+            if(state_analyze_data && NUMBER_OF_BASELINE_SAMPLES > 0){
                 //Adding the HB and HBO2 points to the graph
                 graphData(HB.get(count), series_HB);
                 graphData(HBO2.get(count), series_HBO2);
@@ -1359,6 +1383,7 @@ public class DeviceControlActivity extends AppCompatActivity{
     //Request permissions for save data
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+
         switch (requestCode) {
             case 1000:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -1375,6 +1400,7 @@ public class DeviceControlActivity extends AppCompatActivity{
 
     //Basic graph set up
     public void setUpGraph(){
+
         dataGraph.getViewport().setYAxisBoundsManual(true);
         dataGraph.getViewport().setMinY(-20);
         dataGraph.getViewport().setMaxY(30);
@@ -1400,6 +1426,7 @@ public class DeviceControlActivity extends AppCompatActivity{
     //It adds a black dot to the graph at the location of current time and data
     //It also adds this data point to the array list for markerValues and MarkerTimes
     public void addMarker(){
+
         DataPoint dataPoint;
         if(state_analyze_data){
             markerTimeArray.add(time);
@@ -1473,6 +1500,7 @@ public class DeviceControlActivity extends AppCompatActivity{
 
         final AlertDialog dialog = builder.create();
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
 
         //Button to open settings for data collection
         Button dataSettingsButton = v.findViewById(R.id.dataSettingsButton);
@@ -1646,33 +1674,31 @@ public class DeviceControlActivity extends AppCompatActivity{
         final AlertDialog dialog = builder.create();
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
-        //A swtich to change from graphing raw data to graphing HB and HBO2
+        //A switch to change from graphing raw data to graphing HB and HBO2
         final Switch analyzeDataSwitch = v.findViewById(R.id.analyzeDataSwitch);
-        if(state_analyze_data == true) analyzeDataSwitch.setChecked(true);
+        if(temp_state_analyze_data) analyzeDataSwitch.setChecked(true);
         else analyzeDataSwitch.setChecked(false);
-        if(!state_graphing) {
-            analyzeDataSwitch.setEnabled(true);
-            analyzeDataSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override
-                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    if (isChecked) state_analyze_data = true;
-                    else state_analyze_data = false;
-                }
-            });
-        }
-        else{
-            analyzeDataSwitch.setEnabled(false);
-        }
+        analyzeDataSwitch.setEnabled(true);
+        analyzeDataSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if(isChecked) temp_state_analyze_data = true;
+                else temp_state_analyze_data = false;
+            }
+        });
+
 
         //A number picker to determine the baseline size
         NumberPicker samplesNumberPicker = v.findViewById(R.id.baselineSamplesNumberPicker);
         samplesNumberPicker.setMaxValue(20);
-        samplesNumberPicker.setMinValue(1);
-        samplesNumberPicker.setValue(NUMBER_OF_BASELINE_SAMPLES);
+        //Baseline can only be 0 if collecting raw data and not converting to hb and hbo2
+        if(state_analyze_data) samplesNumberPicker.setMinValue(1);
+        else samplesNumberPicker.setMinValue(0);
+        samplesNumberPicker.setValue(TEMP_NUMBER_OF_BASELINE_SAMPLES);
         samplesNumberPicker.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
             @Override
             public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
-                NUMBER_OF_BASELINE_SAMPLES = newVal;
+                TEMP_NUMBER_OF_BASELINE_SAMPLES = newVal;
                 Log.d(TAG, "NUMBER OF BASELINE SAMPLES CHANGED TO " + NUMBER_OF_BASELINE_SAMPLES);
             }
         });
